@@ -137,6 +137,10 @@ namespace ISO11820WinForms.Utilities
         {
             var config = new ReportConfiguration();
             Configuration.GetSection("Report").Bind(config);
+            config.TemplateFilePath = ResolveApplicationPath(config.TemplateFilePath);
+            config.SummaryTemplateFilePath = ResolveApplicationPath(config.SummaryTemplateFilePath);
+            config.OutputDirectory = ResolveApplicationPath(config.OutputDirectory);
+            config.TempDirectory = ResolveApplicationPath(config.TempDirectory);
             return config;
         }
 
@@ -147,6 +151,7 @@ namespace ISO11820WinForms.Utilities
         {
             var config = new FlameDetectionConfiguration();
             Configuration.GetSection("FlameDetection").Bind(config);
+            config.VideoOutputDirectory = ResolveApplicationPath(config.VideoOutputDirectory);
             return config;
         }
 
@@ -157,6 +162,10 @@ namespace ISO11820WinForms.Utilities
         {
             var config = new FileStorageConfiguration();
             Configuration.GetSection("FileStorage").Bind(config);
+            config.BaseDirectory = ResolveApplicationPath(config.BaseDirectory);
+            config.CalibrationDirectory = ResolveApplicationPath(config.CalibrationDirectory);
+            config.AuditLogDirectory = ResolveApplicationPath(config.AuditLogDirectory);
+            config.TestDataDirectory = ResolveApplicationPath(config.TestDataDirectory);
             return config;
         }
 
@@ -177,6 +186,21 @@ namespace ISO11820WinForms.Utilities
             var config = new T();
             section.Bind(config);
             return config;
+        }
+
+        /// <summary>
+        /// 将配置中的相对路径解析为应用程序根目录下的绝对路径
+        /// </summary>
+        public static string ResolveApplicationPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            return Path.IsPathRooted(path)
+                ? path
+                : Path.GetFullPath(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, path));
         }
     }
 }

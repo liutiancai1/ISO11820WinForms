@@ -245,14 +245,14 @@ namespace ISO11820WinForms.Services
                     {
                         // 设置一号试验炉温度值
                         // 通道0: 炉内温度1, 通道1: 炉内温度2, 通道2: 表面温度, 通道3: 中心温度
-                        if (_sensors.Sensors.ContainsKey(0))
-                            _sensors.Sensors[0].SetInputValue(double.Parse(data.Substring(1 + 0 * 7, 7)));
-                        if (_sensors.Sensors.ContainsKey(1))
-                            _sensors.Sensors[1].SetInputValue(double.Parse(data.Substring(1 + 1 * 7, 7)));
-                        if (_sensors.Sensors.ContainsKey(2))
-                            _sensors.Sensors[2].SetInputValue(double.Parse(data.Substring(1 + 2 * 7, 7)));
-                        if (_sensors.Sensors.ContainsKey(3))
-                            _sensors.Sensors[3].SetInputValue(double.Parse(data.Substring(1 + 3 * 7, 7)));
+                        if (_sensors.Sensors.ContainsKey(SensorChannelHelper.FurnaceTemp1SensorId))
+                            _sensors.Sensors[SensorChannelHelper.FurnaceTemp1SensorId].SetInputValue(double.Parse(data.Substring(1 + 0 * 7, 7)));
+                        if (_sensors.Sensors.ContainsKey(SensorChannelHelper.FurnaceTemp2SensorId))
+                            _sensors.Sensors[SensorChannelHelper.FurnaceTemp2SensorId].SetInputValue(double.Parse(data.Substring(1 + 1 * 7, 7)));
+                        if (_sensors.Sensors.ContainsKey(SensorChannelHelper.SurfaceTempSensorId))
+                            _sensors.Sensors[SensorChannelHelper.SurfaceTempSensorId].SetInputValue(double.Parse(data.Substring(1 + 2 * 7, 7)));
+                        if (_sensors.Sensors.ContainsKey(SensorChannelHelper.CenterTempSensorId))
+                            _sensors.Sensors[SensorChannelHelper.CenterTempSensorId].SetInputValue(double.Parse(data.Substring(1 + 3 * 7, 7)));
                     }
                     
                     // 获取第二个4018+模块的通道值（校准热电偶等）
@@ -263,8 +263,8 @@ namespace ISO11820WinForms.Services
                     if (data.Length == 57)
                     {
                         // 通道0: 校准热电偶温度（传感器ID 16）
-                        if (_sensors.Sensors.ContainsKey(16))
-                            _sensors.Sensors[16].SetInputValue(double.Parse(data.Substring(1 + 0 * 7, 7)));
+                        if (_sensors.Sensors.ContainsKey(SensorChannelHelper.CalibrationTempSensorId))
+                            _sensors.Sensors[SensorChannelHelper.CalibrationTempSensorId].SetInputValue(double.Parse(data.Substring(1 + 0 * 7, 7)));
                     }
                 }
                 catch(TimeoutException e)
@@ -290,12 +290,12 @@ namespace ISO11820WinForms.Services
             OnSensorDataReceived(new SensorDataEventArgs
             {
                 Timer = (int)_elapsedSeconds,
-                Temp1 = _sensors.Sensors.ContainsKey(0) ? _sensors.Sensors[0].Outputvalue : 0,
-                Temp2 = _sensors.Sensors.ContainsKey(1) ? _sensors.Sensors[1].Outputvalue : 0,
-                TempSurface = _sensors.Sensors.ContainsKey(2) ? _sensors.Sensors[2].Outputvalue : 0,
-                TempCenter = _sensors.Sensors.ContainsKey(3) ? _sensors.Sensors[3].Outputvalue : 0,
+                Temp1 = SensorChannelHelper.GetOutputValue(_sensors.Sensors, SensorChannelHelper.FurnaceTemp1SensorId),
+                Temp2 = SensorChannelHelper.GetOutputValue(_sensors.Sensors, SensorChannelHelper.FurnaceTemp2SensorId),
+                TempSurface = SensorChannelHelper.GetOutputValue(_sensors.Sensors, SensorChannelHelper.SurfaceTempSensorId),
+                TempCenter = SensorChannelHelper.GetOutputValue(_sensors.Sensors, SensorChannelHelper.CenterTempSensorId),
                 TempDrift = 0, // 温度漂移由 TestMaster 计算
-                TempCalibration = _sensors.Sensors.ContainsKey(16) ? _sensors.Sensors[16].Outputvalue : 0 // 校准热电偶温度（传感器ID为16）
+                TempCalibration = SensorChannelHelper.GetOutputValue(_sensors.Sensors, SensorChannelHelper.CalibrationTempSensorId) // 校准热电偶温度（传感器ID为16）
             });
 
             // 性能优化：定期清理过期缓存

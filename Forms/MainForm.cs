@@ -2993,7 +2993,13 @@ namespace ISO11820WinForms.Forms
                         // 按日期降序排序
                         query = query.OrderByDescending(c => c.CalibrationDate);
 
-                        return query.ToList();
+                        var records = query.ToList();
+                        foreach (var record in records)
+                        {
+                            record.Memo = ReportPathMemoHelper.GetDisplayMemo(record.Memo);
+                        }
+
+                        return records;
                     }
                 }
                 catch (Exception ex)
@@ -3531,7 +3537,13 @@ namespace ISO11820WinForms.Forms
                         // 按日期降序排序
                         query = query.OrderByDescending(t => t.Testdate);
 
-                        return query.ToList();
+                        var records = query.ToList();
+                        foreach (var record in records)
+                        {
+                            record.Memo = ReportPathMemoHelper.GetDisplayMemo(record.Memo);
+                        }
+
+                        return records;
                     }
                 }
                 catch (Exception ex)
@@ -4097,7 +4109,7 @@ namespace ISO11820WinForms.Forms
                     details.AppendLine();
                     details.AppendLine($"操作员: {testData.Operator}");
                     details.AppendLine($"检验依据: {testData.According}");
-                    details.AppendLine($"试验备注: {testData.Memo}");
+                    details.AppendLine($"试验备注: {ReportPathMemoHelper.GetDisplayMemo(testData.Memo)}");
 
                     // 显示详情对话框
                     MessageBox.Show(details.ToString(),
@@ -4540,12 +4552,7 @@ namespace ISO11820WinForms.Forms
                 using (var progress = new ProgressIndicator(this, "正在生成汇总报告..."))
                 {
                     // 创建报告服务
-                    var reportConfig = new ReportConfiguration
-                    {
-                        OutputDirectory = Path.Combine(Application.StartupPath, "Reports"),
-                        TemplateFilePath = Path.Combine(Application.StartupPath, "Templates", "ReportTemplate.xlsx"),
-                        SummaryTemplateFilePath = Path.Combine(Application.StartupPath, "Templates", "SummaryTemplate.xlsx")
-                    };
+                    var reportConfig = ConfigurationHelper.GetReportConfiguration();
 
                     using (var dbContext = new ISO11820DbContext())
                     {

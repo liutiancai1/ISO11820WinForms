@@ -1,7 +1,7 @@
 namespace TestServer.Models
 {
     /// <summary>
-    /// 试验报告文件路径（用于序列化到 Testmaster.Memo 字段）
+    /// 试验报告相关文件路径
     /// </summary>
     public class TestReportPaths
     {

@@ -13,6 +13,7 @@ using OxyPlot;
 using OxyPlot.WindowsForms;
 using Serilog;
 using ISO11820WinForms.Models;
+using ISO11820WinForms.Utilities;
 using TestServer.Models;
 using Microsoft.EntityFrameworkCore;
 using ImageFormat = System.Drawing.Imaging.ImageFormat;
@@ -40,9 +41,12 @@ namespace ISO11820WinForms.Services
                 // 从数据库查询试验数据
                 using (var context = new ISO11820DbContext())
                 {
-                    var testData = await context.Testmasters
+                    var records = await context.Testmasters
                         .Include(t => t.Product)
                         .Where(t => t.Testid == testId)
+                        .ToListAsync();
+
+                    var testData = records
                         .Select(t => new
                         {
                             样品编号 = t.Productid,
@@ -62,9 +66,9 @@ namespace ISO11820WinForms.Services
                             持续时间 = t.Flameduration,
                             温度升高 = t.Deltatf,
                             质量损失率 = t.LostweightPer,
-                            试验备注 = t.Memo
+                            试验备注 = ReportPathMemoHelper.GetDisplayMemo(t.Memo)
                         })
-                        .ToListAsync();
+                        .ToList();
 
                     if (testData.Count == 0)
                     {

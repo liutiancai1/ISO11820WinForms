@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using Serilog;
 using TestServer.Models;
 using ISO11820WinForms.Models;
+using ISO11820WinForms.Utilities;
 using SummaryStatistics = ISO11820WinForms.Models.SummaryStatistics;
 
 namespace ISO11820WinForms.Services
@@ -308,7 +309,7 @@ namespace ISO11820WinForms.Services
                 // Requirement 8.2: 使用CsvDataService从CSV文件反序列化传感器数据
                 var sensorData = new List<SensorDataPoint>();
                 var csvService = new CsvDataService();
-                var csvFilePath = CsvDataService.GetSensorDataFilePath(productId, testId);
+                var csvFilePath = TestDataPathHelper.ResolveExistingSensorDataFilePath(productId, testId);
                 
                 if (File.Exists(csvFilePath))
                 {
@@ -355,7 +356,7 @@ namespace ISO11820WinForms.Services
         }
 
         /// <summary>
-        /// 保存报告路径到数据库
+        /// 保存报告路径到试验数据目录
         /// </summary>
         private async Task SaveReportPathsAsync(
             string productId,
@@ -365,26 +366,23 @@ namespace ISO11820WinForms.Services
         {
             try
             {
-                var testmaster = await _dbContext.Testmasters
-                    .FirstOrDefaultAsync(t => t.Productid == productId && t.Testid == testId);
-
-                if (testmaster == null)
+                var reportPathsFilePath = TestDataPathHelper.GetReportPathsFilePath(productId, testId);
+                var reportPathsDirectory = Path.GetDirectoryName(reportPathsFilePath);
+                if (!string.IsNullOrWhiteSpace(reportPathsDirectory))
                 {
-                    _logger.Warning("保存报告路径失败：未找到试验记录");
-                    return;
+                    Directory.CreateDirectory(reportPathsDirectory);
                 }
 
-                // 解析现有的 Memo 字段
-                TestReportPaths? paths = null;
-                if (!string.IsNullOrEmpty(testmaster.Memo))
+                TestReportPaths paths;
+                if (File.Exists(reportPathsFilePath))
                 {
                     try
                     {
-                        paths = JsonSerializer.Deserialize<TestReportPaths>(testmaster.Memo);
+                        var existingContent = await File.ReadAllTextAsync(reportPathsFilePath);
+                        paths = JsonSerializer.Deserialize<TestReportPaths>(existingContent) ?? new TestReportPaths();
                     }
                     catch
                     {
-                        // 如果解析失败，创建新对象
                         paths = new TestReportPaths();
                     }
                 }
@@ -393,7 +391,6 @@ namespace ISO11820WinForms.Services
                     paths = new TestReportPaths();
                 }
 
-                // 更新路径
                 if (excelPath != null)
                 {
                     paths.ExcelReportPath = excelPath;
@@ -403,11 +400,10 @@ namespace ISO11820WinForms.Services
                     paths.PdfReportPath = pdfPath;
                 }
 
-                // 序列化并保存
-                testmaster.Memo = JsonSerializer.Serialize(paths);
-                await _dbContext.SaveChangesAsync();
+                var content = JsonSerializer.Serialize(paths);
+                await File.WriteAllTextAsync(reportPathsFilePath, content);
 
-                _logger.Information("报告路径已保存到数据库");
+                _logger.Information("报告路径已保存到文件: {FilePath}", reportPathsFilePath);
             }
             catch (Exception ex)
             {

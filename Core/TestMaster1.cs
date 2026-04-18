@@ -2,6 +2,7 @@ using ISO11820_2020.Models;
 using ISO11820WinForms.Global;
 using ISO11820WinForms.Models;
 using ISO11820WinForms.Services;
+using ISO11820WinForms.Utilities;
 using TestServer.Models;
 using System;
 using System.Collections.Generic;
@@ -132,15 +133,10 @@ namespace ISO11820WinForms.Core
                 return;
             }
 
-            // 真实硬件模式：从传感器字典获取表面温度和中心温度
-            if (_sensors.Sensors.ContainsKey(0))
-            {
-                _sensorDataCatch.TempSuf = _sensors.Sensors[0].Outputvalue;
-            }
-            if (_sensors.Sensors.ContainsKey(1))
-            {
-                _sensorDataCatch.TempCen = _sensors.Sensors[1].Outputvalue;
-            }
+            // 真实硬件模式：从统一的传感器通道映射获取表面温度和中心温度
+            var (surfaceTemp, centerTemp) = SensorChannelHelper.GetSurfaceAndCenterTemperatures(_sensors.Sensors);
+            _sensorDataCatch.TempSuf = surfaceTemp;
+            _sensorDataCatch.TempCen = centerTemp;
         }
 
 
@@ -597,7 +593,7 @@ namespace ISO11820WinForms.Core
                 {
                     try
                     {
-                        string videoPath = $"D:\\ISO11820\\{_testmaster.Productid}\\{_testmaster.Testid}\\data\\flame.avi";
+                        string videoPath = TestDataPathHelper.GetFlameVideoPath(_testmaster.Productid, _testmaster.Testid);
                         await _flameAnalyzer.OutputFlameFramesAsync(videoPath);
                     }
                     catch (Exception ex)
