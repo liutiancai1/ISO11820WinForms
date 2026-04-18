@@ -1,0 +1,106 @@
+<mxfile host="app.diagrams.net" modified="2026-02-15T05:38:00.000Z" agent="Draw.io" version="24.0.0" type="device">
+  <diagram id="hybrid-1" name="计划驱动与敏捷混合开发模型">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;b style=&quot;font-size:18px;&quot;&gt;图1-6 计划驱动与敏捷的混合开发模型&lt;/b&gt;" style="text;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="380" y="10" width="500" height="35" as="geometry" />
+        </mxCell>
+        <!-- 大箭头背景 -->
+        <mxCell id="arrow-bg" value="" style="shape=flexArrow;endArrow=classic;html=1;fillColor=#ECEFF1;strokeColor=#90A4AE;endSize=12;width=280;startSize=12;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="50" y="320" as="sourcePoint" />
+            <mxPoint x="1350" y="320" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <!-- 阶段标签 -->
+        <mxCell id="phase-plan" value="&lt;b&gt;计划驱动阶段&lt;/b&gt;" style="text;html=1;align=center;fontSize=14;fontColor=#1565C0;fontStyle=5;" vertex="1" parent="1">
+          <mxGeometry x="100" y="60" width="300" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="phase-agile" value="&lt;b&gt;敏捷迭代阶段&lt;/b&gt;" style="text;html=1;align=center;fontSize=14;fontColor=#E65100;fontStyle=5;" vertex="1" parent="1">
+          <mxGeometry x="750" y="60" width="400" height="30" as="geometry" />
+        </mxCell>
+        <!-- 分界线 -->
+        <mxCell id="divider" value="" style="endArrow=none;html=1;strokeColor=#C62828;strokeWidth=3;dashed=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="80" as="sourcePoint" />
+            <mxPoint x="620" y="600" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="div-label" value="&lt;font color=&quot;#C62828&quot;&gt;&lt;b&gt;转折点&lt;/b&gt;&lt;br&gt;需求基线确定&lt;/font&gt;" style="text;html=1;align=center;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="570" y="575" width="100" height="40" as="geometry" />
+        </mxCell>
+        <!-- 计划驱动步骤 -->
+        <mxCell id="p1" value="&lt;b&gt;需求分析&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;ISO标准 + 硬件接口&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="100" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="&lt;b&gt;架构设计&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;分层架构 + 技术选型&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1976D2;strokeColor=#1565C0;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="200" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="&lt;b&gt;协议定义&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;Modbus寄存器映射&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1E88E5;strokeColor=#1976D2;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="300" width="170" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="&lt;b&gt;安全评估&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;风险分析与合规&lt;/font&gt;" style="rounded=1;html=1;fillColor=#42A5F5;strokeColor=#1E88E5;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="80" y="400" width="170" height="55" as="geometry" />
+        </mxCell>
+        <!-- 文档输出 -->
+        <mxCell id="doc1" value="📄 需求规格说明书" style="shape=document;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=10;fontColor=#1565C0;size=0.15;" vertex="1" parent="1">
+          <mxGeometry x="340" y="130" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="doc2" value="📄 架构设计文档" style="shape=document;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=10;fontColor=#1565C0;size=0.15;" vertex="1" parent="1">
+          <mxGeometry x="340" y="230" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="doc3" value="📄 接口规范" style="shape=document;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=10;fontColor=#1565C0;size=0.15;" vertex="1" parent="1">
+          <mxGeometry x="340" y="330" width="150" height="50" as="geometry" />
+        </mxCell>
+        <!-- 连线(计划) -->
+        <mxCell id="ep1" value="" style="html=1;strokeColor=#1565C0;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="p1" target="p2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="ep2" value="" style="html=1;strokeColor=#1976D2;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="p2" target="p3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="ep3" value="" style="html=1;strokeColor=#1E88E5;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="p3" target="p4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="edoc1" value="" style="html=1;strokeColor=#90CAF9;endArrow=classic;dashed=1;" edge="1" parent="1" source="p1" target="doc1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="edoc2" value="" style="html=1;strokeColor=#90CAF9;endArrow=classic;dashed=1;" edge="1" parent="1" source="p2" target="doc2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="edoc3" value="" style="html=1;strokeColor=#90CAF9;endArrow=classic;dashed=1;" edge="1" parent="1" source="p3" target="doc3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- 敏捷迭代 -->
+        <mxCell id="s1" value="&lt;b&gt;Sprint 1&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;硬件通信模块&lt;/font&gt;" style="rounded=1;html=1;fillColor=#F57C00;strokeColor=#E65100;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="120" width="150" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" value="&lt;b&gt;Sprint 2&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;数据采集 + 可视化&lt;/font&gt;" style="rounded=1;html=1;fillColor=#EF6C00;strokeColor=#E65100;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="220" width="150" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" value="&lt;b&gt;Sprint 3&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;PID控制 + 火焰检测&lt;/font&gt;" style="rounded=1;html=1;fillColor=#E65100;strokeColor=#BF360C;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="320" width="150" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" value="&lt;b&gt;Sprint N&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;报告生成 + UI优化&lt;/font&gt;" style="rounded=1;html=1;fillColor=#BF360C;strokeColor=#B71C1C;fontColor=#FFF;fontSize=12;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="680" y="420" width="150" height="55" as="geometry" />
+        </mxCell>
+        <!-- 反馈环 -->
+        <mxCell id="fb1" value="&lt;font color=&quot;#43A047&quot;&gt;✓ 评审&lt;/font&gt;" style="rounded=1;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="890" y="135" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fb2" value="&lt;font color=&quot;#43A047&quot;&gt;✓ 评审&lt;/font&gt;" style="rounded=1;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="890" y="235" width="70" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="fb3" value="&lt;font color=&quot;#43A047&quot;&gt;✓ 评审&lt;/font&gt;" style="rounded=1;html=1;fillColor=#E8F5E9;strokeColor=#43A047;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="890" y="335" width="70" height="30" as="geometry" />
+        </mxCell>
+        <!-- 最终交付 -->
+        <mxCell id="delivery" value="&lt;b&gt;发布&lt;br&gt;Release&lt;/b&gt;" style="shape=hexagon;perimeter=hexagonPerimeter2;html=1;fillColor=#C62828;strokeColor=#B71C1C;fontColor=#FFF;fontSize=13;shadow=1;size=0.2;" vertex="1" parent="1">
+          <mxGeometry x="1050" y="250" width="130" height="80" as="geometry" />
+        </mxCell>
+        <!-- 连线(敏捷) -->
+        <mxCell id="es1" value="" style="html=1;strokeColor=#E65100;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="s1" target="s2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="es2" value="" style="html=1;strokeColor=#E65100;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="s2" target="s3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="es3" value="..." style="html=1;strokeColor=#E65100;strokeWidth=2;endArrow=classic;dashed=1;fontSize=14;fontColor=#E65100;" edge="1" parent="1" source="s3" target="s4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="es4" value="" style="html=1;strokeColor=#C62828;strokeWidth=2;endArrow=classic;" edge="1" parent="1" source="s4" target="delivery"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="efb1" value="" style="html=1;strokeColor=#43A047;endArrow=classic;" edge="1" parent="1" source="s1" target="fb1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="efb2" value="" style="html=1;strokeColor=#43A047;endArrow=classic;" edge="1" parent="1" source="s2" target="fb2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="efb3" value="" style="html=1;strokeColor=#43A047;endArrow=classic;" edge="1" parent="1" source="s3" target="fb3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- 本案例标注 -->
+        <mxCell id="note" value="&lt;font color=&quot;#555&quot;&gt;&lt;i&gt;本案例：前期计划驱动固定Modbus协议 + 硬件接口，&lt;br&gt;后期敏捷迭代UI和算法优化&lt;/i&gt;&lt;/font&gt;" style="shape=note2;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=10;size=10;" vertex="1" parent="1">
+          <mxGeometry x="450" y="540" width="350" height="50" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

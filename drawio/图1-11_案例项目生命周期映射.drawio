@@ -1,0 +1,67 @@
+<mxfile host="app.diagrams.net" modified="2026-02-15T05:38:00.000Z" agent="Draw.io" version="24.0.0" type="device">
+  <diagram id="lifecycle-1" name="案例项目生命周期映射">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="900" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;b style=&quot;font-size:18px;&quot;&gt;图1-11 案例项目生命周期映射&lt;/b&gt;" style="text;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="350" y="10" width="400" height="35" as="geometry" />
+        </mxCell>
+        <!-- 中心标题 -->
+        <mxCell id="center" value="&lt;b style=&quot;font-size:12px;&quot;&gt;不燃性试验&lt;br&gt;自动化系统&lt;br&gt;生命周期&lt;/b&gt;" style="ellipse;html=1;fillColor=#1a1a2e;strokeColor=#16213e;fontColor=#FFF;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="450" y="360" width="160" height="110" as="geometry" />
+        </mxCell>
+        <!-- 阶段1: 可行性分析 (12点钟方向) -->
+        <mxCell id="p1" value="&lt;b&gt;① 可行性分析&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;技术可行性(Modbus兼容)&lt;br&gt;资源可行性评估&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="430" y="70" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段2: 需求分析 (1-2点) -->
+        <mxCell id="p2" value="&lt;b&gt;② 需求分析&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;ISO 11820标准要求&lt;br&gt;功能与非功能需求&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1976D2;strokeColor=#1565C0;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="750" y="130" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段3: 架构设计 (3点) -->
+        <mxCell id="p3" value="&lt;b&gt;③ 架构设计&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;分层架构设计&lt;br&gt;技术栈选择&lt;/font&gt;" style="rounded=1;html=1;fillColor=#43A047;strokeColor=#2E7D32;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="850" y="310" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段4: 详细设计 (4-5点) -->
+        <mxCell id="p4" value="&lt;b&gt;④ 详细设计&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;类图·数据库模型&lt;br&gt;接口规范&lt;/font&gt;" style="rounded=1;html=1;fillColor=#66BB6A;strokeColor=#43A047;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="770" y="510" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段5: 编码实现 (6点) -->
+        <mxCell id="p5" value="&lt;b&gt;⑤ 编码实现&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;硬件通信·业务逻辑&lt;br&gt;用户界面&lt;/font&gt;" style="rounded=1;html=1;fillColor=#F57C00;strokeColor=#E65100;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="440" y="650" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段6: 测试验证 (7-8点) -->
+        <mxCell id="p6" value="&lt;b&gt;⑥ 测试验证&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;单元·集成·系统&lt;br&gt;用户验收测试&lt;/font&gt;" style="rounded=1;html=1;fillColor=#EF6C00;strokeColor=#E65100;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="510" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段7: 部署上线 (9点) -->
+        <mxCell id="p7" value="&lt;b&gt;⑦ 部署上线&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;系统安装·数据库部署&lt;br&gt;用户培训&lt;/font&gt;" style="rounded=1;html=1;fillColor=#C62828;strokeColor=#B71C1C;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="10" y="310" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 阶段8: 运维维护 (10-11点) -->
+        <mxCell id="p8" value="&lt;b&gt;⑧ 运维维护&lt;/b&gt;&lt;br&gt;&lt;font size=&quot;1&quot;&gt;故障处理·功能升级&lt;br&gt;性能优化&lt;/font&gt;" style="rounded=1;html=1;fillColor=#7B1FA2;strokeColor=#6A1B9A;fontColor=#FFF;fontSize=11;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="130" width="200" height="65" as="geometry" />
+        </mxCell>
+        <!-- 环形连线 -->
+        <mxCell id="e12" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p1" target="p2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e23" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p2" target="p3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e34" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p3" target="p4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e45" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p4" target="p5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e56" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p5" target="p6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e67" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p6" target="p7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e78" value="" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;curved=1;" edge="1" parent="1" source="p7" target="p8"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="e81" value="&lt;i&gt;迭代&lt;/i&gt;" style="html=1;strokeColor=#7B1FA2;strokeWidth=2;endArrow=classic;curved=1;dashed=1;fontSize=10;fontColor=#7B1FA2;" edge="1" parent="1" source="p8" target="p1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- 到中心的虚线 -->
+        <mxCell id="c1" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c2" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c3" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c4" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c5" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c6" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c7" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p7"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="c8" value="" style="endArrow=none;html=1;strokeColor=#ccc;dashed=1;" edge="1" parent="1" source="center" target="p8"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

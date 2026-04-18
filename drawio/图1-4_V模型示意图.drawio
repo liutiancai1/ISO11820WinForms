@@ -1,0 +1,67 @@
+<mxfile host="65bd71144e" scale="3" border="0">
+    <diagram id="vmodel-1" name="V模型示意图">
+        <mxGraphModel dx="1419" dy="771" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="v1" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;需求分析&lt;/span&gt;" style="rounded=1;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="60" y="100" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="v2" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;概要设计&lt;/span&gt;" style="rounded=1;html=1;fillColor=#1976D2;strokeColor=#1565C0;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="180" y="220" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="v3" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;详细设计&lt;/span&gt;" style="rounded=1;html=1;fillColor=#1E88E5;strokeColor=#1976D2;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="300" y="340" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="v4" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;编码实现&lt;/span&gt;" style="rounded=1;html=1;fillColor=#43A047;strokeColor=#2E7D32;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="530" y="460" width="200" height="55" as="geometry"/>
+                </mxCell>
+                <mxCell id="v5" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;单元测试&lt;/span&gt;" style="rounded=1;html=1;fillColor=#F57C00;strokeColor=#E65100;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="780" y="340" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="v6" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;集成测试&lt;/span&gt;" style="rounded=1;html=1;fillColor=#EF6C00;strokeColor=#E65100;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="900" y="220" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="v7" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;系统测试&lt;/span&gt;" style="rounded=1;html=1;fillColor=#E65100;strokeColor=#BF360C;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="1020" y="100" width="180" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1565C0;strokeWidth=2;entryX=0;entryY=0.5;exitX=0.5;exitY=1;fontSize=14;fontStyle=1" parent="1" source="v1" target="v2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1976D2;strokeWidth=2;entryX=0;entryY=0.5;exitX=0.5;exitY=1;fontSize=14;fontStyle=1" parent="1" source="v2" target="v3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev34" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1E88E5;strokeWidth=2;entryX=0;entryY=0.5;exitX=0.5;exitY=1;fontSize=14;fontStyle=1" parent="1" source="v3" target="v4" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev45" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#43A047;strokeWidth=2;exitX=1;exitY=0.5;entryX=0.5;entryY=1;fontSize=14;fontStyle=1" parent="1" source="v4" target="v5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev56" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#F57C00;strokeWidth=2;exitX=1;exitY=0;entryX=0.5;entryY=1;fontSize=14;fontStyle=1" parent="1" source="v5" target="v6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ev67" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#EF6C00;strokeWidth=2;exitX=1;exitY=0;entryX=0.5;entryY=1;fontSize=14;fontStyle=1" parent="1" source="v6" target="v7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="corr1" value="&lt;i style=&quot;font-size: 14px;&quot;&gt;验证需求&lt;/i&gt;" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#C62828;strokeWidth=1;dashed=1;fontSize=14;fontColor=#C62828;fontStyle=1" parent="1" source="v1" target="v7" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="corr2" value="&lt;i style=&quot;font-size: 14px;&quot;&gt;验证架构&lt;/i&gt;" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#C62828;strokeWidth=1;dashed=1;fontSize=14;fontColor=#C62828;fontStyle=1" parent="1" source="v2" target="v6" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="corr3" value="&lt;i style=&quot;font-size: 14px;&quot;&gt;验证模块&lt;/i&gt;" style="endArrow=classic;startArrow=classic;html=1;strokeColor=#C62828;strokeWidth=1;dashed=1;fontSize=14;fontColor=#C62828;fontStyle=1" parent="1" source="v3" target="v5" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-left" value="&lt;font color=&quot;#1565C0&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;← 开发阶段（分解）&lt;/span&gt;&lt;/font&gt;" style="text;html=1;align=center;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="80" y="530" width="250" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-right" value="&lt;font color=&quot;#E65100&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;测试阶段（集成）→&lt;/span&gt;&lt;/font&gt;" style="text;html=1;align=center;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="920" y="530" width="250" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="lbl-corr" value="&lt;font color=&quot;#C62828&quot; style=&quot;font-size: 14px;&quot;&gt;- - - 虚线表示开发与测试的对应验证关系&lt;/font&gt;" style="text;html=1;align=center;fontSize=14;fontStyle=3;" parent="1" vertex="1">
+                    <mxGeometry x="430" y="560" width="350" height="25" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

@@ -1,0 +1,90 @@
+<mxfile host="app.diagrams.net" modified="2026-02-15T05:38:00.000Z" agent="Draw.io" version="24.0.0" type="device">
+  <diagram id="compare-1" name="工业软件与通用软件特征对比">
+    <mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="&lt;b style=&quot;font-size:18px;&quot;&gt;图1-3 工业软件与通用软件特征对比&lt;/b&gt;" style="text;html=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="400" y="15" width="500" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="lt" value="&lt;b&gt;工业软件&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFF;fontSize=14;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="100" y="70" width="160" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="rt" value="&lt;b&gt;通用/互联网软件&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E65100;strokeColor=#BF360C;fontColor=#FFF;fontSize=14;shadow=1;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="70" width="200" height="40" as="geometry" />
+        </mxCell>
+        <!-- 维度标签列 -->
+        <mxCell id="d1" value="&lt;b&gt;硬件集成度&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="140" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="d2" value="&lt;b&gt;实时性要求&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="240" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="d3" value="&lt;b&gt;可靠性&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="340" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="d4" value="&lt;b&gt;领域知识&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="440" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="d5" value="&lt;b&gt;生命周期&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="540" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="d6" value="&lt;b&gt;调试难度&lt;/b&gt;" style="rounded=1;html=1;fillColor=#E3F2FD;strokeColor=#1565C0;fontSize=11;fontColor=#0D47A1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="640" width="130" height="35" as="geometry" />
+        </mxCell>
+        <!-- 左侧内容 -->
+        <mxCell id="l1" value="&lt;b&gt;极高&lt;/b&gt; — Modbus/OPC UA/PROFIBUS&lt;br&gt;与传感器、执行器深度耦合" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="130" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l2" value="&lt;b&gt;毫秒/微秒级&lt;/b&gt; — 硬实时&lt;br&gt;延迟=安全事故，确定性响应" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="230" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l3" value="&lt;b&gt;安全关键&lt;/b&gt; — 冗余设计、故障容错&lt;br&gt;符合IEC 61508等安全标准" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="330" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l4" value="&lt;b&gt;深度嵌入&lt;/b&gt; — PID控制、热力学模型&lt;br&gt;物理机理 + 行业规范" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="430" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l5" value="&lt;b&gt;20年以上&lt;/b&gt; — 长期维护与演化&lt;br&gt;平台化 + 软件定义制造" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="530" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="l6" value="&lt;b&gt;极困难&lt;/b&gt; — 需HIL仿真/Mock硬件&lt;br&gt;虚实结合 + 极限工况" style="rounded=1;html=1;fillColor=#BBDEFB;strokeColor=#1565C0;fontSize=10;fontColor=#1B3A5C;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="70" y="630" width="280" height="50" as="geometry" />
+        </mxCell>
+        <!-- 右侧内容 -->
+        <mxCell id="r1" value="&lt;b&gt;低&lt;/b&gt; — 通过API/HTTP&lt;br&gt;不直接控制物理设备" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="130" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="r2" value="&lt;b&gt;秒级/最佳努力&lt;/b&gt;&lt;br&gt;软实时，可接受偶尔延迟" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="230" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="r3" value="&lt;b&gt;中等&lt;/b&gt; — 容忍一定故障率&lt;br&gt;快速修复 &amp; 回滚" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="330" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="r4" value="&lt;b&gt;业务逻辑驱动&lt;/b&gt;&lt;br&gt;用户需求为主，CRUD/数据处理" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="430" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="r5" value="&lt;b&gt;2-5年&lt;/b&gt; — 快速迭代/重写&lt;br&gt;技术栈更新快" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="530" width="280" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="r6" value="&lt;b&gt;相对容易&lt;/b&gt; — 纯软件环境测试&lt;br&gt;自动化测试成熟" style="rounded=1;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=10;fontColor=#4E342E;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="900" y="630" width="280" height="50" as="geometry" />
+        </mxCell>
+        <!-- 连线 左→中 -->
+        <mxCell id="el1" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l1" target="d1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="el2" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l2" target="d2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="el3" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l3" target="d3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="el4" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l4" target="d4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="el5" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l5" target="d5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="el6" value="" style="endArrow=classic;html=1;strokeColor=#1565C0;strokeWidth=1;" edge="1" parent="1" source="l6" target="d6"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <!-- 连线 右→中 -->
+        <mxCell id="er1" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r1" target="d1"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="er2" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r2" target="d2"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="er3" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r3" target="d3"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="er4" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r4" target="d4"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="er5" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r5" target="d5"><mxGeometry relative="1" as="geometry" /></mxCell>
+        <mxCell id="er6" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;" edge="1" parent="1" source="r6" target="d6"><mxGeometry relative="1" as="geometry" /></mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

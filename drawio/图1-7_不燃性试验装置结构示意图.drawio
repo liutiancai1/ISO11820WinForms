@@ -1,0 +1,100 @@
+<mxfile host="65bd71144e" scale="3" border="0">
+    <diagram id="furnace-1" name="不燃性试验装置结构示意图">
+        <mxGraphModel dx="1419" dy="771" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="900" background="#ffffff" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="furnace-outer" value="" style="rounded=1;html=1;fillColor=#EFEBE9;strokeColor=#795548;strokeWidth=3;arcSize=5;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="350" y="80" width="400" height="520" as="geometry"/>
+                </mxCell>
+                <mxCell id="furnace-label" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;恒温炉体&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;750°C ± 5°C&lt;/font&gt;" style="text;html=1;align=center;fontColor=#795548;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="460" y="85" width="180" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="furnace-inner" value="" style="rounded=1;html=1;fillColor=#FFCCBC;strokeColor=#E64A19;strokeWidth=2;arcSize=5;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="410" y="140" width="280" height="380" as="geometry"/>
+                </mxCell>
+                <mxCell id="inner-label" value="&lt;font color=&quot;#E64A19&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;炉膛&lt;/span&gt; (高温区)&lt;/font&gt;" style="text;html=1;align=center;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="470" y="145" width="160" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="sample" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;试样&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;(圆柱形)&lt;br style=&quot;font-size: 14px;&quot;&gt;Ø45×50mm&lt;/font&gt;" style="rounded=1;html=1;fillColor=#90A4AE;strokeColor=#546E7A;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="490" y="280" width="120" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="stand" value="" style="rounded=0;html=1;fillColor=#78909C;strokeColor=#546E7A;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="530" y="360" width="40" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="stand-base" value="&lt;font style=&quot;font-size: 14px;&quot;&gt;试样支架&lt;/font&gt;" style="rounded=0;html=1;fillColor=#607D8B;strokeColor=#546E7A;fontColor=#FFF;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="490" y="480" width="120" height="25" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-furnace" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;T&lt;sub style=&quot;font-size: 14px;&quot;&gt;炉&lt;/sub&gt;&lt;/span&gt;" style="ellipse;html=1;fillColor=#C62828;strokeColor=#B71C1C;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="420" y="200" width="50" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-furnace-label" value="&lt;font color=&quot;#C62828&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;炉内热电偶&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;(炉内温度)&lt;/font&gt;" style="text;html=1;align=right;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="200" y="205" width="110" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-tc-f" value="" style="endArrow=classic;html=1;strokeColor=#C62828;strokeWidth=1;dashed=1;fontSize=14;fontStyle=1" parent="1" source="tc-furnace-label" target="tc-furnace" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-surface" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;T&lt;sub style=&quot;font-size: 14px;&quot;&gt;表&lt;/sub&gt;&lt;/span&gt;" style="ellipse;html=1;fillColor=#E65100;strokeColor=#BF360C;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="495" y="260" width="40" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-surface-label" value="&lt;font color=&quot;#E65100&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;表面热电偶&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;(试样表面温度)&lt;/font&gt;" style="text;html=1;align=right;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="200" y="265" width="120" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-tc-s" value="" style="endArrow=classic;html=1;strokeColor=#E65100;strokeWidth=1;dashed=1;fontSize=14;fontStyle=1" parent="1" source="tc-surface-label" target="tc-surface" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-center" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;T&lt;sub style=&quot;font-size: 14px;&quot;&gt;中&lt;/sub&gt;&lt;/span&gt;" style="ellipse;html=1;fillColor=#F57C00;strokeColor=#E65100;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="570" y="300" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="tc-center-label" value="&lt;font color=&quot;#F57C00&quot; style=&quot;font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;中心热电偶&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;(试样中心温度)&lt;/font&gt;" style="text;html=1;align=left;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="790" y="300" width="120" height="35" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-tc-c" value="" style="endArrow=classic;html=1;strokeColor=#F57C00;strokeWidth=1;dashed=1;fontSize=14;fontStyle=1" parent="1" source="tc-center-label" target="tc-center" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="heater1" value="🔥" style="text;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="415" y="350" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="heater2" value="🔥" style="text;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="660" y="350" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="heater3" value="🔥" style="text;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="415" y="250" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="heater4" value="🔥" style="text;html=1;fontSize=14;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="660" y="250" width="30" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="daq" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;数据采集系统&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;Modbus RTU&lt;br style=&quot;font-size: 14px;&quot;&gt;1Hz采样&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1565C0;strokeColor=#0D47A1;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="850" y="170" width="160" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="pid" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;PID温控器&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;750°C ± 5°C&lt;br style=&quot;font-size: 14px;&quot;&gt;闭环控制&lt;/font&gt;" style="rounded=1;html=1;fillColor=#C62828;strokeColor=#B71C1C;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="850" y="400" width="160" height="65" as="geometry"/>
+                </mxCell>
+                <mxCell id="camera" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;📷 摄像头&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;火焰检测&lt;/font&gt;" style="rounded=1;html=1;fillColor=#7B1FA2;strokeColor=#6A1B9A;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="850" y="530" width="160" height="50" as="geometry"/>
+                </mxCell>
+                <mxCell id="pc" value="&lt;span style=&quot;font-size: 14px;&quot;&gt;💻 上位机 (PC)&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;数据记录 · 曲线绘制 · 报告生成&lt;/font&gt;" style="rounded=1;html=1;fillColor=#1a1a2e;strokeColor=#16213e;fontColor=#FFF;fontSize=14;shadow=1;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="1100" y="290" width="220" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-daq" value="温度信号" style="html=1;strokeColor=#1565C0;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#1565C0;fontStyle=1" parent="1" source="furnace-outer" target="daq" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-pid" value="加热控制" style="html=1;strokeColor=#C62828;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#C62828;fontStyle=1" parent="1" source="pid" target="furnace-outer" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-daq-pc" value="Modbus" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#555;fontStyle=1" parent="1" source="daq" target="pc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-pid-pc" value="Modbus" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;startArrow=classic;fontSize=14;fontColor=#555;fontStyle=1" parent="1" source="pid" target="pc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e-cam-pc" value="USB" style="html=1;strokeColor=#555;strokeWidth=2;endArrow=classic;fontSize=14;fontColor=#555;fontStyle=1" parent="1" source="camera" target="pc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="criteria" value="&lt;div style=&quot;text-align: left; padding: 5px; font-size: 14px;&quot;&gt;&lt;span style=&quot;font-size: 14px;&quot;&gt;不燃性判定标准：&lt;/span&gt;&lt;br style=&quot;font-size: 14px;&quot;&gt;① 炉内平均温升 ≤ 50°C&lt;br style=&quot;font-size: 14px;&quot;&gt;② 平均质量损失 ≤ 50%&lt;br style=&quot;font-size: 14px;&quot;&gt;③ 无持续 &amp;gt; 20s 火焰&lt;/div&gt;" style="shape=note2;html=1;fillColor=#FFF9C4;strokeColor=#F9A825;fontSize=14;fontColor=#555;size=10;align=left;fontStyle=1" parent="1" vertex="1">
+                    <mxGeometry x="1070" y="80" width="250" height="85" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
