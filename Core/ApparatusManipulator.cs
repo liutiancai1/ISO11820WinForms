@@ -52,24 +52,20 @@ namespace ISO11820WinForms.Core
             _currentOutput = 0xFFFF;
             _pidOutput = 0x6400; // 对应100%
             
-            // 检查是否启用仿真模式
+            // 纯硬件模式：忽略 PID 仿真开关，始终初始化真实控制器连接。
             var simConfig = ConfigurationHelper.GetSection<SimulationConfiguration>("Simulation");
-            _isSimulationMode = simConfig?.EnableSimulation == true && simConfig?.SimulatePidController == true;
-            
-            if (_isSimulationMode)
+            if (simConfig?.EnableSimulation == true || simConfig?.SimulatePidController == true)
             {
-                Log.Information("PID控制器已启用仿真模式");
+                Log.Warning("已忽略PID仿真配置，当前固定为纯硬件模式");
             }
-            else
-            {
-                //初始化PID控制器连接
-                _pidClient = new();
-                _pidClient.BaudRate = 9600;
-                _pidClient.Parity = Parity.None;
-                _pidClient.StopBits = StopBits.One;
-                _pidClient.ReadTimeout = 1000;
-                _pidClient.WriteTimeout = 1000;
-            }
+
+            _isSimulationMode = false;
+            _pidClient = new();
+            _pidClient.BaudRate = 9600;
+            _pidClient.Parity = Parity.None;
+            _pidClient.StopBits = StopBits.One;
+            _pidClient.ReadTimeout = 1000;
+            _pidClient.WriteTimeout = 1000;
             
             //初始化PID控制器与电力调整器输出控制参数
             Temperature = temperature;

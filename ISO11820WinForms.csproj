@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="ISO11820WinForms.Tests\**\*.cs" />
+    <Compile Remove="ISO11820WinForms.Tests\obj\**\*.cs" />
   </ItemGroup>
 
   <ItemGroup>

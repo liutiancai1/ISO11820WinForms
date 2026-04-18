@@ -52,15 +52,15 @@ namespace ISO11820WinForms.Services
             //初始化串口异常计数器
             _counter = 0;
             
-            // 加载仿真配置
+            // 纯硬件模式：保留配置读取仅用于提示，但运行时不再启用仿真。
             _simulationConfig = ConfigurationHelper.GetSection<SimulationConfiguration>("Simulation");
-            _isSimulationMode = _simulationConfig?.EnableSimulation == true && _simulationConfig?.SimulateSensors == true;
-            
-            if (_isSimulationMode && _simulationConfig != null)
+            if (_simulationConfig?.EnableSimulation == true || _simulationConfig?.SimulateSensors == true)
             {
-                _simulator = new SensorSimulator(_simulationConfig);
-                Log.Information("数据采集服务已启用仿真模式");
+                Log.Warning("已忽略传感器仿真配置，当前固定为纯硬件模式");
             }
+
+            _isSimulationMode = false;
+            _simulator = null;
         }
 
         /// <summary>

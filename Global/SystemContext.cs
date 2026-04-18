@@ -121,24 +121,11 @@ namespace ISO11820WinForms.Global
                 (Int16)constPower,
                 (Int16)pidTemperature
             );
-
-            // 仿真模式：将DaqWorker的模拟器传递给ApparatusManipulator
-            if (Daq.IsSimulationMode && Daq.Simulator != null)
-            {
-                manipulator.SetSimulator(Daq.Simulator);
-                Log.Information("仿真模式：已关联传感器模拟器到设备操作器");
-            }
+            Log.Information("当前运行模式：纯硬件模式");
 
             // 创建TestMaster1（一号试验炉控制器）
             // Requirement 7.1: 使用TestMaster1替代TestMaster，实现完整状态机
             Master1 = new TestMaster1(this, Sensors, manipulator);
-
-            // 仿真模式：将模拟器也传递给TestMaster1
-            if (Daq.IsSimulationMode && Daq.Simulator != null)
-            {
-                Master1.SetSimulator(Daq.Simulator);
-                Log.Information("仿真模式：已关联传感器模拟器到试验控制器");
-            }
 
             // 添加到控制器集合（保持向后兼容）
             Masters.addMaster(Master1);
