@@ -1,5 +1,7 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
+using ISO11820WinForms.UI;
 
 namespace ISO11820WinForms.Forms
 {
@@ -32,6 +34,24 @@ namespace ISO11820WinForms.Forms
         public TestPhenoForm()
         {
             InitializeComponent();
+            ApplyDialogTheme();
+        }
+
+        private void ApplyDialogTheme()
+        {
+            UiTheme.ApplyFormTheme(this, dialog: true);
+            UiTheme.ApplyToControlTree(this);
+
+            Text = "试验记录";
+            BackColor = UiTheme.AppBackground;
+            AcceptButton = btnOK;
+            CancelButton = btnCancel;
+
+            UiTheme.StyleButton(btnOK, ButtonTone.Primary);
+            UiTheme.StyleButton(btnCancel, ButtonTone.Neutral);
+
+            grpFlame.BackColor = UiTheme.SurfaceRaised;
+            grpPostWeight.BackColor = UiTheme.SurfaceRaised;
         }
 
         /// <summary>

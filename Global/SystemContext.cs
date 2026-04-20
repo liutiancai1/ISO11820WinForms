@@ -5,51 +5,34 @@ using Serilog;
 
 namespace ISO11820WinForms.Global
 {
-    /*
-     * 系统全局上下文单例
-     * 管理系统级别的共享资源和服务
-     */
     public class SystemContext
     {
         private static SystemContext? _instance;
-        private static readonly object _lock = new object();
+        private static readonly object LockObject = new object();
 
-        // 单例实例
         public static SystemContext Current
         {
             get
             {
                 if (_instance == null)
                 {
-                    lock (_lock)
+                    lock (LockObject)
                     {
-                        if (_instance == null)
-                        {
-                            _instance = new SystemContext();
-                        }
+                        _instance ??= new SystemContext();
                     }
                 }
+
                 return _instance;
             }
         }
 
-        // 传感器字典
-        public SensorDictionary Sensors { get; private set; }
-        
-        // 试验控制器集合
-        public TestMasters Masters { get; private set; }
-        
-        // 数据采集服务
+        public SensorDictionary Sensors { get; }
+        public TestMasters Masters { get; }
         public DaqWorker Daq { get; private set; }
-        
-        // 全局配置对象
-        public AppGlobalWinForms Global { get; private set; }
-
-        // 一号试验炉控制器（TestMaster1实例）
-        // Requirement 7.1: 使用TestMaster1替代TestMaster
+        public AppGlobalWinForms Global { get; }
+        public IModbusRtuGateway? SharedModbusGateway { get; private set; }
         public TestMaster1? Master1 { get; private set; }
 
-        // 私有构造函数
         private SystemContext()
         {
             Sensors = new SensorDictionary();
@@ -58,102 +41,140 @@ namespace ISO11820WinForms.Global
             Daq = new DaqWorker(Sensors);
         }
 
-        /*
-         * 功能: 初始化系统上下文
-         * 说明: 
-         *   1. 加载全局配置
-         *   2. 启动数据采集服务
-         *   3. 创建默认试验控制器
-         */
         public void Init()
         {
             Log.Information("开始初始化系统上下文");
 
-            // 初始化配置服务和目录结构
             var configService = Services.ConfigurationService.Instance;
             if (!configService.ValidateConfiguration())
             {
-                Log.Warning("配置验证失败，但系统将继续初始化");
+                Log.Warning("配置校验失败，但系统将继续初始化");
             }
 
             if (!configService.InitializeDirectories())
             {
-                Log.Warning("目录初始化失败，某些功能可能受影响");
+                Log.Warning("目录初始化失败，部分功能可能不可用");
             }
 
             Log.Information(configService.GetConfigurationSummary());
 
-            // 启动数据采集服务
-            Daq.Start();
             Log.Information("数据采集服务已启动");
 
-            // 从配置文件读取硬件参数
-            string pidPort = ConfigurationHelper.GetPidPort();
-            string powerPort = ConfigurationHelper.GetPowerPort();
-            int constPower = ConfigurationHelper.GetConstPower();
-            int pidTemperature = ConfigurationHelper.GetPidTemperature();
+            var pidPort = ConfigurationHelper.GetPidPort();
+            var powerPort = ConfigurationHelper.GetPowerPort();
+            var sensorPort = ConfigurationHelper.GetSensorPort();
+            var sensorProtocol = ConfigurationHelper.GetSensorProtocol();
+            var constPower = ConfigurationHelper.GetConstPower();
+            var pidTemperature = ConfigurationHelper.GetPidTemperature();
+            var sensorStationNumber = ConfigurationHelper.GetSensorStationNumber();
+            var pidStationNumber = ConfigurationHelper.GetPidStationNumber();
+            var sensorRegisterStartAddress = ConfigurationHelper.NormalizeSensorRegisterStartAddress(
+                sensorProtocol,
+                ConfigurationHelper.GetSensorRegisterStartAddress());
+            var sensorRegisterCount = ConfigurationHelper.GetSensorRegisterCount();
+            var sensorReadTimeoutMs = ConfigurationHelper.GetSensorReadTimeoutMs();
+            var calibrationChannelIndex = ConfigurationHelper.GetCalibrationChannelIndex();
 
-            Log.Information("硬件配置: PID端口={PidPort}, 功率端口={PowerPort}, 恒功率={ConstPower}, PID温度={PidTemperature}", 
-                pidPort, powerPort, constPower, pidTemperature);
+            Log.Information(
+                "硬件配置: PID端口={PidPort}, 功率端口={PowerPort}, 采集端口={SensorPort}, 恒功率={ConstPower}, PID温度={PidTemperature}",
+                pidPort,
+                powerPort,
+                sensorPort,
+                constPower,
+                pidTemperature);
 
-            // 创建一个默认的TestMaster实例
-            // 优先从Global中获取设备配置信息，如果没有则使用配置文件中的默认值
+            Log.Information(
+                "硬件站号配置：PID站号={PidStationNumber}，ADAM站号={SensorStationNumber}，校准通道={CalibrationChannelIndex}",
+                pidStationNumber,
+                sensorStationNumber,
+                calibrationChannelIndex);
+
             var apparatus = Global.DictApparatus.Values.FirstOrDefault();
-            if (apparatus != null)
+            var useSharedSerialPort = ConfigurationHelper.IsSharedHardwarePortConfigured();
+            if (useSharedSerialPort)
             {
-                // 使用数据库中的设备配置，如果为空则使用配置文件中的值
+                pidPort = sensorPort;
+                powerPort = sensorPort;
+                Log.Information("检测到单串口共享模式，统一使用端口 {SharedPort}", sensorPort);
+            }
+            else if (apparatus != null)
+            {
                 pidPort = apparatus.Pidport ?? pidPort;
                 powerPort = apparatus.Powerport ?? powerPort;
                 constPower = (int)(apparatus.Constpower ?? constPower);
-                
-                Log.Information("使用数据库设备配置: PID端口={PidPort}, 功率端口={PowerPort}, 恒功率={ConstPower}", 
-                    pidPort, powerPort, constPower);
+
+                Log.Information(
+                    "使用数据库设备配置: PID端口={PidPort}, 功率端口={PowerPort}, 恒功率={ConstPower}",
+                    pidPort,
+                    powerPort,
+                    constPower);
             }
             else
             {
-                Log.Warning("未找到数据库设备配置信息，使用配置文件中的默认值");
+                Log.Warning("未找到数据库设备配置，使用 appsettings.json 中的端口配置");
             }
 
-            // 创建设备操作对象
+            ModbusSerialDetectionResult? detectionResult = null;
+            if (useSharedSerialPort && string.Equals(sensorProtocol, "ModbusRtu", StringComparison.OrdinalIgnoreCase))
+            {
+                var detector = new AdamModbusSerialSettingsDetector();
+                detectionResult = detector.Detect(
+                    sensorPort,
+                    (byte)sensorStationNumber,
+                    (ushort)sensorRegisterStartAddress,
+                    sensorRegisterCount,
+                    sensorReadTimeoutMs);
+
+                SharedModbusGateway ??= new SharedModbusRtuGateway(sensorPort, detectionResult.Settings);
+                Log.Information(
+                    "已启用共享 Modbus 网关: 端口={Port}, 串口参数={SerialSettings}, 自动探测={Detected}",
+                    sensorPort,
+                    detectionResult.Settings.ToDisplayString(),
+                    detectionResult.IsDetected);
+            }
+
+            Daq = new DaqWorker(Sensors, SharedModbusGateway, detectionResult);
+            Daq.Start();
+
             var manipulator = new ApparatusManipulator(
                 pidPort,
                 powerPort,
-                (Int16)constPower,
-                (Int16)pidTemperature
-            );
+                (short)constPower,
+                (short)pidTemperature,
+                (byte)pidStationNumber,
+                SharedModbusGateway);
+
             Log.Information("当前运行模式：纯硬件模式");
 
-            // 创建TestMaster1（一号试验炉控制器）
-            // Requirement 7.1: 使用TestMaster1替代TestMaster，实现完整状态机
             Master1 = new TestMaster1(this, Sensors, manipulator);
-
-            // 添加到控制器集合（保持向后兼容）
             Masters.addMaster(Master1);
-            
+
             Log.Information("已创建一号试验炉控制器 ID: {MasterId}", Master1.MasterId);
 
-            // 初始化试验控制器（启动状态机定时器）
-            Master1.OnInitialized();
-            Log.Information("试验控制器已初始化，状态机定时器已启动");
+            var controllerInitialized = Master1.OnInitialized();
+            if (controllerInitialized)
+            {
+                Log.Information("试验控制器已初始化，状态机定时器已启动");
+            }
+            else
+            {
+                Log.Warning("试验控制器初始化未完成，系统将以未连接状态继续启动");
+            }
+
             Log.Information("系统上下文初始化完成");
         }
 
-        /*
-         * 功能: 清理系统资源
-         * 性能优化：清理缓存
-         */
         public void Cleanup()
         {
             Log.Information("开始清理系统资源");
-            
-            // 停止数据采集服务
-            Daq?.Stop();
-            Daq?.Dispose();
-            
-            // 性能优化：清理所有缓存
+
+            Daq.Stop();
+            Daq.Dispose();
+            SharedModbusGateway?.Dispose();
+            SharedModbusGateway = null;
+
             CacheService.Instance.ClearAllCache();
             Log.Information("已清理所有缓存");
-            
             Log.Information("系统资源清理完成");
         }
     }

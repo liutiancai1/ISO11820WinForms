@@ -17,6 +17,7 @@ using ISO11820WinForms.Global;
 using Serilog;
 using Microsoft.EntityFrameworkCore;
 using ISO11820WinForms.Utilities;
+using ISO11820WinForms.UI;
 
 namespace ISO11820WinForms.Forms
 {
@@ -24,6 +25,7 @@ namespace ISO11820WinForms.Forms
     {
         private Operator _currentUser;
         private ToolStripMenuItem? _selectedMenuItem;
+        private bool _showSystemMessages = true;
 
         // 图表相关字段
         private PlotView? _chartView;
@@ -33,14 +35,10 @@ namespace ISO11820WinForms.Forms
         private LineSeries? _seriesTS;   // 表面温度（绿色）
         private LineSeries? _seriesTC;   // 中心温度（黄色）
 
-        private int _dataPointCount = 0;  // 数据点计数器
-        private const int MAX_DATA_POINTS = 750;  // 600秒 ÷ 0.8秒 ≈ 750个点（10分钟）
+        private int _dataPointCount = 0;  // 图表时间计数器（按 TestMaster 每秒广播累加）
+        private const int CHART_TIME_WINDOW_SECONDS = 600;  // 图表显示最近10分钟
+        private const int MAX_DATA_POINTS = CHART_TIME_WINDOW_SECONDS;
         private const double Y_AXIS_MAX = 800;     // Y轴最大值
-
-        // 性能优化：批量更新和节流
-        private int _chartUpdateCounter = 0;
-        private const int CHART_UPDATE_INTERVAL = 2;  // 每2次数据更新才刷新一次图表（减少重绘）
-        private bool _isChartUpdatePending = false;
 
         // DaqWorker实例（假设已经在全局上下文中）
         private DaqWorker? _daqWorker;
@@ -99,6 +97,8 @@ namespace ISO11820WinForms.Forms
 
             // 添加欢迎消息
             AppendSystemMessage("系统已启动，操作员: " + _currentUser.Userid);
+            UpdateButtonStates(MasterStatus.Idle);
+            ReportHardwareStartupStatus();
 
             // 初始化系统校验视图
             InitializeCalibrationView();
@@ -109,8 +109,9 @@ namespace ISO11820WinForms.Forms
             // 初始化记录查询视图
             InitializeQueryView();
 
-            // 添加按钮悬停效果
+            // 应用统一工业风主题
             InitializeButtonHoverEffects();
+            ApplyIndustrialTheme();
         }
 
         /*
@@ -125,21 +126,233 @@ namespace ISO11820WinForms.Forms
             }
         }
 
+        private void ApplyIndustrialTheme()
+        {
+            UiTheme.ApplyFormTheme(this);
+            UiTheme.ApplyToControlTree(this);
+
+            BackColor = UiTheme.AppBackground;
+            panel1.BackColor = UiTheme.SurfaceStrongAlt;
+            panelSample.BackColor = UiTheme.AppBackground;
+            panelCalibration.BackColor = UiTheme.AppBackground;
+            panelReport.BackColor = UiTheme.AppBackground;
+            panelQuery.BackColor = UiTheme.AppBackground;
+            tabPage样品试验.BackColor = UiTheme.AppBackground;
+            tabPage系统校验.BackColor = UiTheme.AppBackground;
+            tabPage试验报告.BackColor = UiTheme.AppBackground;
+            tabPage记录查询.BackColor = UiTheme.AppBackground;
+
+            UiTheme.StyleMenuStrip(menuStrip1);
+            UiTheme.StyleMenuStrip(menuStrip3, compact: true);
+            lblSystemName.ForeColor = UiTheme.Ink;
+
+            panelOperations.BackColor = UiTheme.SurfaceStrongAlt;
+            panelOperations.Padding = new Padding(12, 8, 12, 8);
+            panelOperations.Height = 56;
+
+            panelMessageBottom.BackColor = UiTheme.SurfaceStrongAlt;
+            panelMessageBottom.Padding = new Padding(10, 6, 10, 6);
+            panelMessageBottom.Height = 46;
+
+            messagePanel.BackColor = UiTheme.SurfaceRaised;
+            messagePanel.BorderStyle = BorderStyle.None;
+            chartPanel.BackColor = UiTheme.SurfaceRaised;
+            chartPanel.BorderStyle = BorderStyle.None;
+            panelDataDisplay.BackColor = UiTheme.SurfaceRaised;
+            panelDataDisplay.BorderStyle = BorderStyle.None;
+
+            BuildMetricDisplay();
+            StylePrimaryButtons();
+            StyleDataTables();
+            ApplyChartTheme();
+            ApplyMessageToggleButtonState();
+            SetSelectedMenuItem(_selectedMenuItem ?? 样品试验ToolStripMenuItem, tabControl1.SelectedIndex);
+        }
+
+        private void StylePrimaryButtons()
+        {
+            UiTheme.StyleButton(btnNewTest, ButtonTone.Warning, compact: true);
+            UiTheme.StyleButton(btnOpenRecord, ButtonTone.Secondary, compact: true);
+            UiTheme.StyleButton(btnStopRecord, ButtonTone.Danger, compact: true);
+            UiTheme.StyleButton(btnRecordLogs, ButtonTone.Neutral, compact: true);
+            UiTheme.StyleButton(btnParamSettings, ButtonTone.Neutral, compact: true);
+            UiTheme.StyleButton(btnStartHeating, ButtonTone.Primary, compact: true);
+            UiTheme.StyleButton(btnStopHeating, ButtonTone.Danger, compact: true);
+
+            UiTheme.StyleButton(btnCalculate, ButtonTone.Primary);
+            UiTheme.StyleButton(btnRecordSurface, ButtonTone.Warning);
+            UiTheme.StyleButton(btnResetCenter, ButtonTone.Neutral);
+            UiTheme.StyleButton(btnRecordCenter, ButtonTone.Warning);
+
+            UiTheme.StyleButton(btnReportQuery, ButtonTone.Primary);
+            UiTheme.StyleButton(btnReportReset, ButtonTone.Neutral);
+            UiTheme.StyleButton(btnReportExportExcel, ButtonTone.Warning);
+            UiTheme.StyleButton(btnReportExportPdf, ButtonTone.Secondary);
+
+            UiTheme.StyleButton(btnQuerySearch, ButtonTone.Primary);
+            UiTheme.StyleButton(btnQueryReset, ButtonTone.Neutral);
+            UiTheme.StyleButton(btnQueryViewDetails, ButtonTone.Secondary);
+            UiTheme.StyleButton(btnQueryExportCsv, ButtonTone.Warning);
+            UiTheme.StyleButton(btnQuerySummaryReport, ButtonTone.Primary);
+        }
+
+        private void StyleDataTables()
+        {
+            UiTheme.StyleDataGridView(dgvSystemMessage);
+            UiTheme.StyleDataGridView(dgvRealTimeData);
+            UiTheme.StyleDataGridView(dgvSurfaceTemp);
+            UiTheme.StyleDataGridView(dgvReportData);
+            UiTheme.StyleDataGridView(dgvQueryData);
+        }
+
+        private void ApplyChartTheme()
+        {
+            UiTheme.StylePlotHost(chartPanel);
+            if (_chartModel != null)
+            {
+                UiTheme.StylePlot(_chartModel, "实时温度趋势");
+                _chartModel.InvalidatePlot(false);
+            }
+
+            if (_chartView != null)
+            {
+                _chartView.BackColor = UiTheme.SurfaceRaised;
+            }
+
+            if (_centerChartModel != null)
+            {
+                UiTheme.StylePlot(_centerChartModel, "中心轴温度分布");
+                _centerChartModel.InvalidatePlot(false);
+            }
+
+            if (_centerChartView != null)
+            {
+                _centerChartView.BackColor = UiTheme.SurfaceRaised;
+            }
+        }
+
+        private void BuildMetricDisplay()
+        {
+            panelDataDisplay.SuspendLayout();
+            panelDataDisplay.Controls.Clear();
+            panelDataDisplay.Padding = new Padding(16, 16, 16, 16);
+
+            var metricsTable = new TableLayoutPanel
+            {
+                Dock = DockStyle.Top,
+                AutoSize = true,
+                ColumnCount = 1,
+                RowCount = 7,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            metricsTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            for (int i = 0; i < metricsTable.RowCount; i++)
+            {
+                metricsTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+            }
+
+            metricsTable.Controls.Add(CreateMetricHeader(), 0, 0);
+            metricsTable.Controls.Add(CreateMetricCard(lblTime, dataTime, UiTheme.Accent, true), 0, 1);
+            metricsTable.Controls.Add(CreateMetricCard(lblTemp1, dataTemp1, Color.FromArgb(81, 154, 255)), 0, 2);
+            metricsTable.Controls.Add(CreateMetricCard(lblTemp2, dataTemp2, Color.FromArgb(255, 133, 92)), 0, 3);
+            metricsTable.Controls.Add(CreateMetricCard(lblSurfaceTemp, dataSurfaceTemp, Color.FromArgb(72, 178, 138)), 0, 4);
+            metricsTable.Controls.Add(CreateMetricCard(lblCenterTemp, dataCenterTemp, UiTheme.MetricGlow), 0, 5);
+            metricsTable.Controls.Add(CreateMetricCard(lblTempRise, dataTempRise, Color.FromArgb(255, 171, 72)), 0, 6);
+
+            panelDataDisplay.Controls.Add(metricsTable);
+            panelDataDisplay.ResumeLayout();
+            panelDataDisplay.Invalidate();
+        }
+
+        private Panel CreateMetricHeader()
+        {
+            var header = new Panel
+            {
+                Height = 62,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 12),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            var eyebrow = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 22,
+                ForeColor = UiTheme.MetricGlow,
+                Font = new Font("Consolas", 10F, FontStyle.Bold, GraphicsUnit.Point),
+                Text = "LIVE HARDWARE STATUS",
+                BackColor = Color.Transparent
+            };
+
+            var title = new Label
+            {
+                Dock = DockStyle.Fill,
+                ForeColor = UiTheme.Ink,
+                Font = new Font("Microsoft YaHei UI", 13F, FontStyle.Bold, GraphicsUnit.Point),
+                Text = "实时监测",
+                BackColor = Color.Transparent
+            };
+
+            header.Controls.Add(title);
+            header.Controls.Add(eyebrow);
+            return header;
+        }
+
+        private Panel CreateMetricCard(Label titleLabel, Label valueLabel, Color accentColor, bool emphasize = false)
+        {
+            UiTheme.StyleMetricTitle(titleLabel);
+            UiTheme.StyleMetricValue(valueLabel, accentColor, emphasize);
+            titleLabel.Height = 24;
+            valueLabel.Height = emphasize ? 42 : 34;
+
+            var accentBar = new Panel
+            {
+                Dock = DockStyle.Left,
+                Width = 5,
+                BackColor = accentColor,
+                Tag = "theme-skip"
+            };
+
+            var content = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(14, 8, 12, 8),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            titleLabel.Dock = DockStyle.Top;
+            valueLabel.Dock = DockStyle.Fill;
+            content.Controls.Add(valueLabel);
+            content.Controls.Add(titleLabel);
+
+            var card = new Panel
+            {
+                Height = emphasize ? 86 : 72,
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 0, 10),
+                BackColor = UiTheme.SurfaceStrong,
+                Tag = "theme-skip"
+            };
+
+            card.Controls.Add(content);
+            card.Controls.Add(accentBar);
+            return card;
+        }
+
+        private void ApplyMessageToggleButtonState()
+        {
+            UiTheme.StyleButton(btnSystemMessage, _showSystemMessages ? ButtonTone.Primary : ButtonTone.Neutral, compact: true);
+            UiTheme.StyleButton(btnRealTimeData, _showSystemMessages ? ButtonTone.Neutral : ButtonTone.Primary, compact: true);
+        }
+
         /*
          * 功能: 初始化按钮悬停效果
          */
         private void InitializeButtonHoverEffects()
         {
-            // 为所有按钮添加悬停效果
-            AddButtonHoverEffect(btnNewTest, Color.FromArgb(255, 193, 7), Color.FromArgb(255, 213, 79));
-            AddButtonHoverEffect(btnOpenRecord, Color.FromArgb(0, 123, 255), Color.FromArgb(0, 143, 255));
-            AddButtonHoverEffect(btnStopRecord, Color.FromArgb(220, 53, 69), Color.FromArgb(200, 35, 51));
-            AddButtonHoverEffect(btnRecordLogs, Color.FromArgb(111, 66, 193), Color.FromArgb(131, 86, 213));
-            AddButtonHoverEffect(btnParamSettings, Color.FromArgb(108, 117, 125), Color.FromArgb(128, 137, 145));
-            AddButtonHoverEffect(btnStartHeating, Color.FromArgb(255, 140, 0), Color.FromArgb(255, 160, 50));
-            AddButtonHoverEffect(btnStopHeating, Color.FromArgb(220, 53, 69), Color.FromArgb(200, 35, 51));
-            AddButtonHoverEffect(btnSystemMessage, Color.FromArgb(65, 105, 225), Color.FromArgb(85, 125, 245));
-            AddButtonHoverEffect(btnRealTimeData, Color.FromArgb(100, 150, 255), Color.FromArgb(120, 170, 255));
+            // 工业风主题统一使用 FlatAppearance 处理按钮交互，这里不再绑定旧配色事件。
         }
 
         /*
@@ -147,15 +360,7 @@ namespace ISO11820WinForms.Forms
          */
         private void AddButtonHoverEffect(Button button, Color normalColor, Color hoverColor)
         {
-            button.MouseEnter += (s, e) =>
-            {
-                button.BackColor = hoverColor;
-            };
-
-            button.MouseLeave += (s, e) =>
-            {
-                button.BackColor = normalColor;
-            };
+            UiTheme.StyleButton(button, ButtonTone.Neutral, compact: true);
         }
 
         /*
@@ -172,11 +377,11 @@ namespace ISO11820WinForms.Forms
                 {
                     using (furnaceImage)
                     {
-                        // 在面板底部绘制炉子图片
-                        int imageWidth = 200;
-                        int imageHeight = 200;
+                        // 在面板底部绘制小尺寸炉体图标，作为工业仪表盘背景装饰
+                        int imageWidth = 112;
+                        int imageHeight = 112;
                         int x = (panelDataDisplay.Width - imageWidth) / 2;
-                        int y = panelDataDisplay.Height - imageHeight - 20;
+                        int y = panelDataDisplay.Height - imageHeight - 18;
                         
                         e.Graphics.DrawImage(furnaceImage, x, y, imageWidth, imageHeight);
                     }
@@ -202,26 +407,23 @@ namespace ISO11820WinForms.Forms
         {
             try
             {
-                int width = 180;
-                int height = 180;
+                int width = 104;
+                int height = 104;
                 int x = (panelDataDisplay.Width - width) / 2;
-                int y = panelDataDisplay.Height - height - 30;
+                int y = panelDataDisplay.Height - height - 24;
 
-                // 绘制炉子外框
-                using (var pen = new Pen(Color.FromArgb(108, 117, 125), 3))
+                using (var pen = new Pen(Color.FromArgb(111, 126, 139), 2))
                 {
                     g.DrawRectangle(pen, x, y, width, height);
                 }
 
-                // 绘制炉子内部
-                using (var brush = new SolidBrush(Color.FromArgb(255, 140, 0)))
+                using (var brush = new SolidBrush(Color.FromArgb(82, 92, 101)))
                 {
-                    g.FillRectangle(brush, x + 10, y + 10, width - 20, height - 20);
+                    g.FillRectangle(brush, x + 8, y + 8, width - 16, height - 16);
                 }
 
-                // 绘制文字
-                using (var font = new Font("Microsoft YaHei UI", 12F, FontStyle.Bold))
-                using (var brush = new SolidBrush(Color.White))
+                using (var font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold))
+                using (var brush = new SolidBrush(Color.FromArgb(244, 196, 78)))
                 {
                     var text = "试验炉";
                     var textSize = g.MeasureString(text, font);
@@ -255,18 +457,15 @@ namespace ISO11820WinForms.Forms
 
         private void SetSelectedMenuItem(ToolStripMenuItem selectedItem, int tabIndex)
         {
-            // 恢复上一个选中项的样式
             if (_selectedMenuItem != null)
             {
-                _selectedMenuItem.BackColor = SystemColors.Control;
-                _selectedMenuItem.ForeColor = SystemColors.ControlText;
+                _selectedMenuItem.BackColor = Color.Transparent;
+                _selectedMenuItem.ForeColor = UiTheme.Ink;
             }
 
-            // 设置TabControl显示对应的标签页
-            this.tabControl1.SelectedIndex = tabIndex;
+            tabControl1.SelectedIndex = tabIndex;
 
-            // 设置选中菜单项的样式
-            selectedItem.BackColor = Color.FromArgb(51, 122, 183);
+            selectedItem.BackColor = UiTheme.Accent;
             selectedItem.ForeColor = Color.White;
 
             _selectedMenuItem = selectedItem;
@@ -319,39 +518,47 @@ namespace ISO11820WinForms.Forms
         {
             // 禁用按钮防止重复点击
             btnStartHeating.Enabled = false;
-            
-            using (var progress = new ProgressIndicator(this, "正在启动加热..."))
+
+            try
             {
-                try
+                if (!EnsureHardwareReadyForStart("开始升温", requireSensor: true, requirePid: true))
                 {
-                    Log.Information("用户点击开始升温按钮");
+                    return;
+                }
 
-                    // 从全局上下文获取TestMaster实例（标准单例访问模式）
-                    var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
-
-                    // 调用TestMaster的异步升温方法
-                    var result = await testMaster.StartHeatingAsync();
-
-                    if (result == 0)
+                using (var progress = new ProgressIndicator(this, "正在启动加热..."))
+                {
+                    try
                     {
-                        Log.Information("试验装置开始加热成功");
-                        AppendSystemMessage("试验装置开始加热。");
+                        Log.Information("用户点击开始升温按钮");
+
+                        // 从全局上下文获取TestMaster实例（标准单例访问模式）
+                        var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
+
+                        // 调用TestMaster的异步升温方法
+                        var result = await testMaster.StartHeatingAsync();
+
+                        if (result == 0)
+                        {
+                            Log.Information("试验装置开始加热成功");
+                            AppendSystemMessage("试验装置开始加热。");
+                        }
+                        else
+                        {
+                            Log.Warning("试验装置开始加热失败，通信异常，返回码: {Result}", result);
+                            ExceptionHandler.ShowWarning("通信异常，炉温加热未能启动。\n请检查设备连接。");
+                        }
                     }
-                    else
+                    catch (Exception ex)
                     {
-                        Log.Warning("试验装置开始加热失败，通信异常，返回码: {Result}", result);
-                        ExceptionHandler.ShowWarning("通信异常，炉温加热未能启动。\n请检查设备连接。");
+                        ExceptionHandler.HandleHardwareException(ex, "加热控制器");
                     }
                 }
-                catch (Exception ex)
-                {
-                    ExceptionHandler.HandleHardwareException(ex, "加热控制器");
-                }
-                finally
-                {
-                    // 恢复按钮状态
-                    btnStartHeating.Enabled = true;
-                }
+            }
+            finally
+            {
+                // 恢复按钮状态
+                btnStartHeating.Enabled = true;
             }
         }
 
@@ -409,6 +616,11 @@ namespace ISO11820WinForms.Forms
                 if (testMaster.GetTestData() == null)
                 {
                     ExceptionHandler.ShowWarning("试验控制器尚未接收试验样品信息，请先新建本次试验。", "无法开始记录");
+                    return;
+                }
+
+                if (!EnsureHardwareReadyForStart("开始记录", requireSensor: true, requirePid: true))
+                {
                     return;
                 }
 
@@ -742,8 +954,8 @@ namespace ISO11820WinForms.Forms
                     dataSurfaceTemp.Text = e.SensorData.TempSuf.ToString("F1");
                     dataCenterTemp.Text = e.SensorData.TempCen.ToString("F1");
 
-                    // 更新温度曲线图表（使用Modbus数据，而非DaqWorker的ADAM数据）
-                    UpdateChartFromModbus(e.Timer, e.SensorData);
+                    // 更新温度曲线图表（由 TestMaster 广播驱动）
+                    UpdateChartFromModbus(e.SensorData);
                 }
 
                 // 更新温度漂移显示
@@ -775,12 +987,10 @@ namespace ISO11820WinForms.Forms
         }
 
         /*
-         * 功能: 使用Modbus数据更新温度曲线图表
-         * 说明: 由于DaqWorker (COM3 ADAM协议) 在仿真模式下超时返回0，
-         *       图表数据改为使用TestMaster1广播的Modbus数据
-         * 注意: 使用 _dataPointCount 作为X轴时间值，因为TestMaster每秒广播一次
+         * 功能: 使用 TestMaster 广播数据更新温度曲线图表
+         * 说明: 图表时间轴跟随状态机每秒广播推进，覆盖升温和记录两个阶段
          */
-        private void UpdateChartFromModbus(int timer, SensorDataCatch sensorData)
+        private void UpdateChartFromModbus(SensorDataCatch sensorData)
         {
             try
             {
@@ -790,12 +1000,8 @@ namespace ISO11820WinForms.Forms
                     return;
                 }
 
-                // 使用 _dataPointCount 作为X轴时间值（秒）
+                // TestMaster 状态机每秒广播一次，直接用计数器表示图表时间轴。
                 double xValue = _dataPointCount;
-
-                // 调试日志：输出当前数据点信息
-                Log.Information("图表更新: 点数={Count}, X={X}, Temp1={T1:F1}, Temp2={T2:F1}, TempSuf={TS:F1}, TempCen={TC:F1}", 
-                    _dataPointCount, xValue, sensorData.Temp1, sensorData.Temp2, sensorData.TempSuf, sensorData.TempCen);
 
                 // 添加数据点到曲线
                 _seriesTF1.Points.Add(new DataPoint(xValue, sensorData.Temp1));
@@ -819,7 +1025,7 @@ namespace ISO11820WinForms.Forms
                     {
                         var firstPoint = _seriesTF1.Points[0];
                         xAxis.Minimum = firstPoint.X;
-                        xAxis.Maximum = firstPoint.X + 600;
+                        xAxis.Maximum = firstPoint.X + CHART_TIME_WINDOW_SECONDS;
                     }
                 }
 
@@ -909,6 +1115,47 @@ namespace ISO11820WinForms.Forms
             }
         }
 
+        private void ReportHardwareStartupStatus()
+        {
+            if (_daqWorker != null && !_daqWorker.IsSensorConnected)
+            {
+                AppendSystemMessage($"传感器采集未连接，当前串口: {_daqWorker.SensorPortName}。系统已启动，但实时采集不可用。");
+            }
+
+            if (_testMaster1 != null && !_testMaster1.Manipulator.IsConnected)
+            {
+                AppendSystemMessage($"PID 控制器未连接，当前串口: {_testMaster1.Manipulator.PidPortName}。纯硬件模式下，请先接好硬件再开始升温或记录。");
+            }
+        }
+
+        private bool EnsureHardwareReadyForStart(string actionName, bool requireSensor, bool requirePid)
+        {
+            var missingParts = new List<string>();
+
+            if (requireSensor && (_daqWorker == null || !_daqWorker.IsSensorConnected))
+            {
+                var sensorPort = _daqWorker?.SensorPortName ?? "未配置";
+                missingParts.Add($"采集串口 {sensorPort}");
+            }
+
+            if (requirePid && (_testMaster1 == null || !_testMaster1.Manipulator.IsConnected))
+            {
+                var pidPort = _testMaster1?.Manipulator.PidPortName ?? "未配置";
+                missingParts.Add($"PID 串口 {pidPort}");
+            }
+
+            if (missingParts.Count == 0)
+            {
+                return true;
+            }
+
+            var message = $"{actionName}前检测到硬件未连接：{string.Join("、", missingParts)}。请先连接硬件后再试。";
+            Log.Warning(message);
+            AppendSystemMessage(message);
+            ExceptionHandler.ShowWarning(message, "硬件未连接");
+            return false;
+        }
+
         /*
          * 功能: 根据TestMaster状态更新按钮启用状态
          */
@@ -983,8 +1230,8 @@ namespace ISO11820WinForms.Forms
                 // 创建PlotModel
                 _chartModel = new PlotModel
                 {
-                    Title = "实时温度曲线",
-                    Background = OxyColors.White,
+                    Title = "实时温度趋势",
+                    Background = OxyColor.FromRgb(UiTheme.SurfaceRaised.R, UiTheme.SurfaceRaised.G, UiTheme.SurfaceRaised.B),
                     TitleFontSize = 16
                 };
 
@@ -994,11 +1241,11 @@ namespace ISO11820WinForms.Forms
                     Position = AxisPosition.Bottom,
                     Title = "时间(s)",
                     Minimum = 0,
-                    Maximum = 600,  // 显示最近10分钟
+                    Maximum = CHART_TIME_WINDOW_SECONDS,
                     MajorStep = 60,  // 每60秒一个主刻度
                     MinorStep = 10,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(230, 230, 230)
+                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
                 };
                 _chartModel.Axes.Add(xAxis);
 
@@ -1012,7 +1259,7 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 100,
                     MinorStep = 20,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(230, 230, 230)
+                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
                 };
                 _chartModel.Axes.Add(yAxis);
 
@@ -1020,36 +1267,40 @@ namespace ISO11820WinForms.Forms
                 _seriesTF1 = new LineSeries
                 {
                     Title = "TF1(炉内温度1)",
-                    Color = OxyColors.Blue,
-                    StrokeThickness = 2,
-                    MarkerType = MarkerType.None
+                    Color = OxyColor.FromRgb(83, 147, 245),
+                    StrokeThickness = 2.8,
+                    MarkerType = MarkerType.None,
+                    LineStyle = LineStyle.Solid
                 };
                 _chartModel.Series.Add(_seriesTF1);
 
                 _seriesTF2 = new LineSeries
                 {
                     Title = "TF2(炉内温度2)",
-                    Color = OxyColors.Red,
-                    StrokeThickness = 2,
-                    MarkerType = MarkerType.None
+                    Color = OxyColor.FromRgb(245, 128, 87),
+                    StrokeThickness = 2.6,
+                    MarkerType = MarkerType.None,
+                    LineStyle = LineStyle.Dash
                 };
                 _chartModel.Series.Add(_seriesTF2);
 
                 _seriesTS = new LineSeries
                 {
                     Title = "TS(表面温度)",
-                    Color = OxyColors.Green,
-                    StrokeThickness = 2,
-                    MarkerType = MarkerType.None
+                    Color = OxyColor.FromRgb(70, 178, 137),
+                    StrokeThickness = 2.6,
+                    MarkerType = MarkerType.None,
+                    LineStyle = LineStyle.Dot
                 };
                 _chartModel.Series.Add(_seriesTS);
 
                 _seriesTC = new LineSeries
                 {
                     Title = "TC(中心温度)",
-                    Color = OxyColors.Gold,
-                    StrokeThickness = 2,
-                    MarkerType = MarkerType.None
+                    Color = OxyColor.FromRgb(244, 191, 76),
+                    StrokeThickness = 2.8,
+                    MarkerType = MarkerType.None,
+                    LineStyle = LineStyle.DashDot
                 };
                 _chartModel.Series.Add(_seriesTC);
 
@@ -1058,7 +1309,7 @@ namespace ISO11820WinForms.Forms
                 {
                     Model = _chartModel,
                     Dock = DockStyle.Fill,
-                    BackColor = Color.White
+                    BackColor = UiTheme.SurfaceRaised
                 };
 
                 // 添加到chartPanel
@@ -1097,6 +1348,10 @@ namespace ISO11820WinForms.Forms
 
                 // 更新校温热电偶温度显示（用于系统校验，来自 ADAM 模块）
                 dataCaliTemp.Text = e.TempCalibration.ToString("F1");
+                if (_centerCalibrationTempLabel != null)
+                {
+                    _centerCalibrationTempLabel.Text = e.TempCalibration.ToString("F1");
+                }
                 
                 // 更新校准温度稳定状态视觉指示
                 // 根据 Requirements 4.3: 当温度在 750±5°C (745-755°C) 范围内时显示稳定状态
@@ -1106,7 +1361,6 @@ namespace ISO11820WinForms.Forms
                 AppendRealTimeData(e);
 
                 // 注意：图表更新已移至 OnTestMasterDataBroadcast -> UpdateChartFromModbus
-                // 因为 DaqWorker (COM3 ADAM协议) 在仿真模式下超时返回0
             }
             catch (Exception ex)
             {
@@ -1116,7 +1370,6 @@ namespace ISO11820WinForms.Forms
 
         /*
          * 功能: 重置图表（开始新试验时调用）
-         * 性能优化：重置计数器和标志
          */
         private void ResetChart()
         {
@@ -1130,16 +1383,12 @@ namespace ISO11820WinForms.Forms
                     _seriesTC.Points.Clear();
                     _dataPointCount = 0;
 
-                    // 重置性能优化相关的计数器
-                    _chartUpdateCounter = 0;
-                    _isChartUpdatePending = false;
-
                     // 重置X轴范围
                     var xAxis = _chartModel.Axes[0] as LinearAxis;
                     if (xAxis != null)
                     {
                         xAxis.Minimum = 0;
-                        xAxis.Maximum = 600;
+                        xAxis.Maximum = CHART_TIME_WINDOW_SECONDS;
                     }
 
                     _chartModel.InvalidatePlot(true);
@@ -1374,11 +1623,8 @@ namespace ISO11820WinForms.Forms
          */
         private void btnSystemMessage_Click(object sender, EventArgs e)
         {
-            // 切换按钮样式（标准选中状态高亮模式）
-            btnSystemMessage.BackColor = Color.FromArgb(65, 105, 225);
-            btnRealTimeData.BackColor = Color.FromArgb(100, 150, 255);
-
-            // 切换显示
+            _showSystemMessages = true;
+            ApplyMessageToggleButtonState();
             dgvSystemMessage.Visible = true;
             dgvRealTimeData.Visible = false;
         }
@@ -1388,11 +1634,8 @@ namespace ISO11820WinForms.Forms
          */
         private void btnRealTimeData_Click(object sender, EventArgs e)
         {
-            // 切换按钮样式（标准选中状态高亮模式）
-            btnRealTimeData.BackColor = Color.FromArgb(65, 105, 225);
-            btnSystemMessage.BackColor = Color.FromArgb(100, 150, 255);
-
-            // 切换显示
+            _showSystemMessages = false;
+            ApplyMessageToggleButtonState();
             dgvRealTimeData.Visible = true;
             dgvSystemMessage.Visible = false;
         }
@@ -1423,6 +1666,7 @@ namespace ISO11820WinForms.Forms
         private PlotView? _centerChartView;
         private PlotModel? _centerChartModel;
         private LineSeries? _centerTempSeries;
+        private Label? _centerCalibrationTempLabel;
 
         /*
          * 功能: 初始化系统校验视图（采用三列布局，模仿原Web项目）
@@ -1912,7 +2156,7 @@ namespace ISO11820WinForms.Forms
             };
             panel.Controls.Add(lblCaliTempLabel2);
 
-            var dataCaliTemp2 = new Label
+            _centerCalibrationTempLabel = new Label
             {
                 Text = "0.0",
                 Location = new Point(10, yPos + 35),
@@ -1923,7 +2167,7 @@ namespace ISO11820WinForms.Forms
                 TextAlign = ContentAlignment.MiddleCenter,
                 BorderStyle = BorderStyle.FixedSingle
             };
-            panel.Controls.Add(dataCaliTemp2);
+            panel.Controls.Add(_centerCalibrationTempLabel);
 
             yPos += 90;
 
@@ -2208,7 +2452,7 @@ namespace ISO11820WinForms.Forms
                 _centerChartModel = new PlotModel
                 {
                     Title = "中心轴温度分布",
-                    Background = OxyColors.White,
+                    Background = OxyColor.FromRgb(UiTheme.SurfaceRaised.R, UiTheme.SurfaceRaised.G, UiTheme.SurfaceRaised.B),
                     TitleFontSize = 14
                 };
 
@@ -2222,7 +2466,7 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 10,
                     MinorStep = 5,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(230, 230, 230)
+                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
                 };
                 _centerChartModel.Axes.Add(xAxis);
 
@@ -2236,7 +2480,7 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 100,
                     MinorStep = 20,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(230, 230, 230)
+                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
                 };
                 _centerChartModel.Axes.Add(yAxis);
 
@@ -2244,11 +2488,11 @@ namespace ISO11820WinForms.Forms
                 _centerTempSeries = new LineSeries
                 {
                     Title = "中心轴温度",
-                    Color = OxyColors.Blue,
-                    StrokeThickness = 2,
+                    Color = OxyColor.FromRgb(83, 147, 245),
+                    StrokeThickness = 2.6,
                     MarkerType = MarkerType.Circle,
                     MarkerSize = 4,
-                    MarkerFill = OxyColors.Blue
+                    MarkerFill = OxyColor.FromRgb(83, 147, 245)
                 };
                 _centerChartModel.Series.Add(_centerTempSeries);
 
@@ -2257,7 +2501,7 @@ namespace ISO11820WinForms.Forms
                 {
                     Model = _centerChartModel,
                     Dock = DockStyle.Fill,
-                    BackColor = Color.White
+                    BackColor = UiTheme.SurfaceRaised
                 };
 
                 // 添加到panelCenterChart
@@ -4268,6 +4512,18 @@ namespace ISO11820WinForms.Forms
                 if (_chartModel == null)
                 {
                     MessageBox.Show("没有可导出的图表数据。",
+                        "提示",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                bool hasChartData = _chartModel.Series
+                    .OfType<LineSeries>()
+                    .Any(series => series.Points.Count > 0);
+                if (!hasChartData)
+                {
+                    MessageBox.Show("当前温度曲线没有可导出的数据。",
                         "提示",
                         MessageBoxButtons.OK,
                         MessageBoxIcon.Information);

@@ -296,7 +296,7 @@ namespace ISO11820WinForms.Core
         /* ====================== 实现试验控制器通用接口方法 ================== */
 
         /* 控制器初始化函数 */
-        public void OnInitialized()
+        public bool OnInitialized()
         {
              Console.WriteLine("连接PID温度控制器");
             //连接PID控温器
@@ -305,7 +305,10 @@ namespace ISO11820WinForms.Core
                 //启动试验控制器并设置状态为[Idle]           
                 Status = MasterStatus.Idle;
                 _timer?.Change(0, 1000);
+                return true;
             }
+
+            return false;
         }
 
         /* 控制器工作函数 */

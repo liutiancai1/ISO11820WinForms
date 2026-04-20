@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Drawing;
 using System.Windows.Forms;
 using TestServer.Models;
 using ISO11820WinForms.Models;
@@ -7,6 +8,7 @@ using ISO11820WinForms.Services;
 using ISO11820WinForms.Global;
 using Serilog;
 using ISO11820WinForms.Utilities;
+using ISO11820WinForms.UI;
 
 namespace ISO11820WinForms.Forms
 {
@@ -17,15 +19,36 @@ namespace ISO11820WinForms.Forms
         public NewTestForm()
         {
             InitializeComponent();
-            
+
             _testmasterService = new TestmasterService();
-            
+
             // 设置按钮事件
             button1.Click += btnOK_Click;
             button2.Click += btnCancel_Click;
-            
+
             // 初始化默认值
             InitializeDefaultValues();
+            ApplyDialogTheme();
+        }
+
+        private void ApplyDialogTheme()
+        {
+            UiTheme.ApplyFormTheme(this, dialog: true);
+            UiTheme.ApplyToControlTree(this);
+
+            Text = "新建试验";
+            BackColor = UiTheme.AppBackground;
+            button1.Text = "创建试验";
+            button2.Text = "取消";
+            AcceptButton = button1;
+            CancelButton = button2;
+
+            UiTheme.StyleButton(button1, ButtonTone.Primary);
+            UiTheme.StyleButton(button2, ButtonTone.Neutral);
+
+            textBox12.Enabled = true;
+            textBox12.ReadOnly = true;
+            textBox12.BackColor = Color.FromArgb(240, 236, 229);
         }
 
         /*

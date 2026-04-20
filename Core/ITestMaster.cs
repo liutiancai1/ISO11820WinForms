@@ -6,7 +6,7 @@ namespace ISO11820WinForms.Core
     public interface ITestMaster
     {
         //初始化完成后需要执行的操作
-        public void OnInitialized();
+        public bool OnInitialized();
 
         /* =====================试验控制器任务接口方法========================= */
         /* 新建试验任务 */

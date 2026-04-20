@@ -14,7 +14,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Remove="ISO11820WinForms.Tests\**\*.cs" />
     <Compile Remove="ISO11820WinForms.Tests\obj\**\*.cs" />
+    <EmbeddedResource Remove="ISO11820WinForms.Tests\**\*" />
+    <None Remove="ISO11820WinForms.Tests\**\*" />
   </ItemGroup>
 
   <ItemGroup>

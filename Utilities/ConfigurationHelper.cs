@@ -83,6 +83,17 @@ namespace ISO11820WinForms.Utilities
             return Configuration["Hardware:SensorPort"] ?? "COM3";
         }
 
+        public static bool AreSameSerialPort(string? leftPort, string? rightPort)
+        {
+            return SerialPortCoordinator.IsSamePort(leftPort, rightPort);
+        }
+
+        public static bool IsSharedHardwarePortConfigured()
+        {
+            return AreSameSerialPort(GetPidPort(), GetSensorPort())
+                || AreSameSerialPort(GetPowerPort(), GetSensorPort());
+        }
+
         /// <summary>
         /// 获取硬件配置 - 恒功率值
         /// </summary>
@@ -99,6 +110,57 @@ namespace ISO11820WinForms.Utilities
         {
             var value = Configuration["Hardware:PidTemperature"];
             return int.TryParse(value, out var result) ? result : 750;
+        }
+
+        public static string GetSensorProtocol()
+        {
+            return Configuration["Hardware:SensorProtocol"] ?? "ModbusRtu";
+        }
+
+        public static int GetSensorStationNumber()
+        {
+            var value = Configuration["Hardware:SensorStationNumber"];
+            return int.TryParse(value, out var result) ? result : 1;
+        }
+
+        public static int GetPidStationNumber()
+        {
+            var value = Configuration["Hardware:PidStationNumber"];
+            return int.TryParse(value, out var result) ? result : 2;
+        }
+
+        public static int GetSensorRegisterStartAddress()
+        {
+            var value = Configuration["Hardware:SensorRegisterStartAddress"];
+            return int.TryParse(value, out var result) ? result : 1;
+        }
+
+        public static int NormalizeSensorRegisterStartAddress(string? sensorProtocol, int startAddress)
+        {
+            if (string.Equals(sensorProtocol, "ModbusRtu", StringComparison.OrdinalIgnoreCase) && startAddress < 0)
+            {
+                return 0;
+            }
+
+            return startAddress;
+        }
+
+        public static int GetSensorRegisterCount()
+        {
+            var value = Configuration["Hardware:SensorRegisterCount"];
+            return int.TryParse(value, out var result) ? result : 8;
+        }
+
+        public static int GetSensorReadTimeoutMs()
+        {
+            var value = Configuration["Hardware:SensorReadTimeoutMs"];
+            return int.TryParse(value, out var result) ? result : 1000;
+        }
+
+        public static int GetCalibrationChannelIndex()
+        {
+            var value = Configuration["Hardware:CalibrationChannelIndex"];
+            return int.TryParse(value, out var result) ? result : 4;
         }
 
         /// <summary>
