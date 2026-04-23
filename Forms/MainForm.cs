@@ -147,12 +147,12 @@ namespace ISO11820WinForms.Forms
             lblSystemName.ForeColor = UiTheme.Ink;
 
             panelOperations.BackColor = UiTheme.SurfaceStrongAlt;
-            panelOperations.Padding = new Padding(12, 8, 12, 8);
-            panelOperations.Height = 56;
+            panelOperations.Padding = new Padding(12, 10, 12, 10);
+            panelOperations.Height = 64;
 
             panelMessageBottom.BackColor = UiTheme.SurfaceStrongAlt;
-            panelMessageBottom.Padding = new Padding(10, 6, 10, 6);
-            panelMessageBottom.Height = 46;
+            panelMessageBottom.Padding = new Padding(10, 8, 10, 8);
+            panelMessageBottom.Height = 52;
 
             messagePanel.BackColor = UiTheme.SurfaceRaised;
             messagePanel.BorderStyle = BorderStyle.None;

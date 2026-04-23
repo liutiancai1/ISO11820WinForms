@@ -30,18 +30,21 @@ namespace ISO11820WinForms.UI
         public static readonly Color Accent = Color.FromArgb(17, 119, 112);
         public static readonly Color AccentHover = Color.FromArgb(24, 140, 132);
         public static readonly Color AccentSoft = Color.FromArgb(223, 239, 236);
-        public static readonly Color Warning = Color.FromArgb(201, 128, 34);
-        public static readonly Color WarningHover = Color.FromArgb(217, 145, 51);
+        public static readonly Color Warning = Color.FromArgb(214, 153, 52);
+        public static readonly Color WarningHover = Color.FromArgb(224, 164, 64);
         public static readonly Color Danger = Color.FromArgb(187, 82, 64);
         public static readonly Color DangerHover = Color.FromArgb(204, 98, 80);
-        public static readonly Color Neutral = Color.FromArgb(109, 122, 131);
-        public static readonly Color NeutralHover = Color.FromArgb(126, 138, 147);
+        public static readonly Color Neutral = Color.FromArgb(88, 100, 110);
+        public static readonly Color NeutralHover = Color.FromArgb(102, 114, 124);
         public static readonly Color MetricGlow = Color.FromArgb(205, 145, 34);
         public static readonly Color Success = Color.FromArgb(46, 145, 104);
         public static readonly Color SuccessSoft = Color.FromArgb(220, 240, 231);
 
-        private static readonly Font BodyFont = new("Microsoft YaHei UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
-        private static readonly Font EmphasisFont = new("Microsoft YaHei UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font BodyFont = new("Microsoft YaHei UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+        private static readonly Font EmphasisFont = new("Microsoft YaHei UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font CompactButtonFont = new("Microsoft YaHei UI", 11F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font MenuFont = new("Microsoft YaHei UI", 11F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font CompactMenuFont = new("Microsoft YaHei UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
 
         public static void ApplyFormTheme(Form form, bool dialog = false)
         {
@@ -72,12 +75,13 @@ namespace ISO11820WinForms.UI
             button.FlatAppearance.BorderSize = 0;
             button.FlatAppearance.MouseDownBackColor = Shift(GetBackColor(tone), 10);
             button.FlatAppearance.MouseOverBackColor = GetHoverColor(tone);
-            button.ForeColor = Color.White;
+            button.ForeColor = GetTextColor(tone);
             button.BackColor = GetBackColor(tone);
-            button.Font = compact ? BodyFont : EmphasisFont;
+            button.Font = compact ? CompactButtonFont : EmphasisFont;
             button.Cursor = Cursors.Hand;
             button.UseVisualStyleBackColor = false;
-            button.Padding = new Padding(10, 0, 10, 0);
+            button.Padding = compact ? new Padding(14, 6, 14, 6) : new Padding(16, 8, 16, 8);
+            button.MinimumSize = new Size(0, compact ? 40 : 44);
         }
 
         public static void StyleChipRadioButton(RadioButton radioButton, bool selected)
@@ -130,13 +134,16 @@ namespace ISO11820WinForms.UI
             menuStrip.ForeColor = Ink;
             menuStrip.RenderMode = ToolStripRenderMode.Professional;
             menuStrip.Renderer = new ToolStripProfessionalRenderer(new ThemeColorTable(compact));
-            menuStrip.Padding = compact ? new Padding(12, 4, 12, 4) : new Padding(12, 6, 12, 6);
+            menuStrip.AutoSize = false;
+            menuStrip.Height = Math.Max(menuStrip.Height, compact ? 42 : 48);
+            menuStrip.Padding = compact ? new Padding(12, 6, 12, 6) : new Padding(14, 8, 14, 8);
             foreach (ToolStripItem item in menuStrip.Items)
             {
                 if (item is ToolStripMenuItem menuItem)
                 {
                     menuItem.ForeColor = Ink;
-                    menuItem.Font = compact ? BodyFont : EmphasisFont;
+                    menuItem.Font = compact ? CompactMenuFont : MenuFont;
+                    menuItem.Padding = compact ? new Padding(12, 6, 12, 6) : new Padding(14, 8, 14, 8);
                 }
             }
         }
@@ -227,6 +234,15 @@ namespace ISO11820WinForms.UI
                 ButtonTone.Warning => WarningHover,
                 ButtonTone.Danger => DangerHover,
                 _ => NeutralHover
+            };
+        }
+
+        public static Color GetTextColor(ButtonTone tone)
+        {
+            return tone switch
+            {
+                ButtonTone.Warning => Ink,
+                _ => Color.White
             };
         }
 
