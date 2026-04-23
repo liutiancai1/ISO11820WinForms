@@ -542,7 +542,7 @@ namespace ISO11820WinForms.Core
         /// Requirement 6.3: 将恒功率值发送到设备控制器并切换到手动控制模式
         /// </summary>
         /// <returns>是否成功开始记录</returns>
-        public new bool StartRecording()
+        public override bool StartRecording()
         {
             // Requirement 6.2: 计算恒功率值
             int constantPower = CalculateConstantPower();
@@ -560,6 +560,7 @@ namespace ISO11820WinForms.Core
                 // 重置火焰检测状态
                 _bFlameDetected = false;
                 _iFlameDurTime = 0;
+                _simulator?.StartRecording(Timer);
 
                 // 启动火焰检测（如果已初始化）
                 _flameAnalyzer?.StartAnalyzing();
@@ -579,11 +580,12 @@ namespace ISO11820WinForms.Core
         /// Requirement 2.4: 试验记录停止时将火焰视频帧输出到文件
         /// </summary>
         /// <returns>是否成功停止记录</returns>
-        public new bool StopRecording()
+        public override bool StopRecording()
         {
             // 停止火焰检测
             // Requirement 2.3: 在Recording状态停止火焰检测
             _flameAnalyzer?.StopAnalyzing();
+            _simulator?.StopRecording();
 
             // Requirement 2.4: 如果检测到火焰，输出火焰视频
             if (_bFlameDetected && _flameAnalyzer != null && _testmaster != null)

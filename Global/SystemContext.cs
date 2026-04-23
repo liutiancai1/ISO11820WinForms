@@ -1,4 +1,5 @@
 using ISO11820WinForms.Core;
+using ISO11820WinForms.Models;
 using ISO11820WinForms.Services;
 using ISO11820WinForms.Utilities;
 using Serilog;
@@ -74,6 +75,8 @@ namespace ISO11820WinForms.Global
             var sensorRegisterCount = ConfigurationHelper.GetSensorRegisterCount();
             var sensorReadTimeoutMs = ConfigurationHelper.GetSensorReadTimeoutMs();
             var calibrationChannelIndex = ConfigurationHelper.GetCalibrationChannelIndex();
+            var simulationConfig = ConfigurationHelper.GetSection<SimulationConfiguration>("Simulation");
+            var useSimulationMode = simulationConfig?.EnableSimulation == true;
 
             Log.Information(
                 "硬件配置: PID端口={PidPort}, 功率端口={PowerPort}, 采集端口={SensorPort}, 恒功率={ConstPower}, PID温度={PidTemperature}",
@@ -115,7 +118,7 @@ namespace ISO11820WinForms.Global
             }
 
             ModbusSerialDetectionResult? detectionResult = null;
-            if (useSharedSerialPort && string.Equals(sensorProtocol, "ModbusRtu", StringComparison.OrdinalIgnoreCase))
+            if (!useSimulationMode && useSharedSerialPort && string.Equals(sensorProtocol, "ModbusRtu", StringComparison.OrdinalIgnoreCase))
             {
                 var detector = new AdamModbusSerialSettingsDetector();
                 detectionResult = detector.Detect(
@@ -132,6 +135,10 @@ namespace ISO11820WinForms.Global
                     detectionResult.Settings.ToDisplayString(),
                     detectionResult.IsDetected);
             }
+            else if (useSimulationMode)
+            {
+                Log.Information("离线仿真模式已启用，跳过共享串口自动探测和硬件连接");
+            }
 
             Daq = new DaqWorker(Sensors, SharedModbusGateway, detectionResult);
             Daq.Start();
@@ -144,9 +151,15 @@ namespace ISO11820WinForms.Global
                 (byte)pidStationNumber,
                 SharedModbusGateway);
 
-            Log.Information("当前运行模式：纯硬件模式");
+            Log.Information("当前运行模式：{Mode}", useSimulationMode ? "离线仿真模式" : "纯硬件模式");
 
             Master1 = new TestMaster1(this, Sensors, manipulator);
+            if (Daq.IsSimulationMode && Daq.Simulator != null)
+            {
+                Master1.SetSimulator(Daq.Simulator);
+                Log.Information("已将采集模拟器绑定到试验控制器和 PID 控制器");
+            }
+
             Masters.addMaster(Master1);
 
             Log.Information("已创建一号试验炉控制器 ID: {MasterId}", Master1.MasterId);

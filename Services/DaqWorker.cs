@@ -51,13 +51,17 @@ namespace ISO11820WinForms.Services
             _sensors.Sensors ??= new Dictionary<int, Sensor>();
 
             _simulationConfig = ConfigurationHelper.GetSection<SimulationConfiguration>("Simulation");
-            if (_simulationConfig?.EnableSimulation == true || _simulationConfig?.SimulateSensors == true)
+            _isSimulationMode = _simulationConfig?.EnableSimulation == true && _simulationConfig.SimulateSensors;
+            if (_isSimulationMode)
             {
-                Log.Warning("已忽略传感器仿真配置，当前固定为纯硬件模式");
+                _simulator = new SensorSimulator(_simulationConfig!);
+                _isSensorConnected = true;
+                Log.Information("已启用传感器离线仿真模式，采集数据将由模拟器生成");
             }
-
-            _isSimulationMode = false;
-            _simulator = null;
+            else
+            {
+                _simulator = null;
+            }
         }
 
         public event EventHandler<SensorDataEventArgs>? SensorDataReceived;
@@ -141,6 +145,7 @@ namespace ISO11820WinForms.Services
 
             if (_isSimulationMode)
             {
+                _isSensorConnected = true;
                 _timer.Change(0, PollIntervalMs);
                 _isRunning = true;
                 Log.Information("仿真模式下已启动数据采集定时器");
@@ -264,19 +269,7 @@ namespace ISO11820WinForms.Services
 
             _simulator.Update(_elapsedSeconds);
 
-            var modbusTemp = 25.0;
-            try
-            {
-                var testMaster = SystemContext.Current.Master1;
-                if (testMaster != null)
-                {
-                    modbusTemp = testMaster.Manipulator.GetCurrentTemp() / 10.0;
-                }
-            }
-            catch (Exception ex)
-            {
-                Log.Warning("从 Modbus 读取温度失败，使用默认值: {Message}", ex.Message);
-            }
+            var modbusTemp = _simulator.FurnaceTemp1;
 
             PublishCurrentSensorData(
                 (int)_elapsedSeconds,

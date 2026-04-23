@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,6 +8,7 @@ using CsvHelper;
 using CsvHelper.Configuration;
 using System.Globalization;
 using OfficeOpenXml;
+using OfficeOpenXml.Drawing.Chart;
 using OfficeOpenXml.Style;
 using OxyPlot;
 using OxyPlot.WindowsForms;
@@ -112,12 +113,10 @@ namespace ISO11820WinForms.Services
             {
                 Log.Information("开始导出试验报告到Excel，试验ID: {TestId}, 文件路径: {FilePath}", testId, filePath);
 
-                // 设置EPPlus许可证上下文
                 ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
 
                 using (var context = new ISO11820DbContext())
                 {
-                    // 查询试验数据
                     var testData = await context.Testmasters
                         .Include(t => t.Product)
                         .FirstOrDefaultAsync(t => t.Testid == testId);
@@ -128,14 +127,11 @@ namespace ISO11820WinForms.Services
                         return false;
                     }
 
-                    // 创建Excel文件
                     using (var package = new ExcelPackage())
                     {
-                        // 添加试验信息工作表
                         var infoSheet = package.Workbook.Worksheets.Add("试验信息");
                         CreateTestInfoSheet(infoSheet, testData);
 
-                        // 保存文件
                         var fileInfo = new FileInfo(filePath);
                         await package.SaveAsAsync(fileInfo);
                     }
@@ -152,61 +148,487 @@ namespace ISO11820WinForms.Services
         }
 
         /// <summary>
+        /// 导出记录查询结果到独立Excel文件
+        /// </summary>
+        public async Task<bool> ExportQueryResultsToExcel(
+            IReadOnlyList<Testmaster> records,
+            string filePath,
+            DateTime startDate,
+            DateTime endDate,
+            string productId,
+            string testId,
+            string operatorId)
+        {
+            try
+            {
+                Log.Information("开始导出记录查询结果到Excel，记录数: {Count}, 文件路径: {FilePath}", records.Count, filePath);
+
+                ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+                using (var package = new ExcelPackage())
+                {
+                    var sheet = package.Workbook.Worksheets.Add("查询结果");
+                    CreateQueryResultsSheet(sheet, records, startDate, endDate, productId, testId, operatorId);
+
+                    var fileInfo = new FileInfo(filePath);
+                    await package.SaveAsAsync(fileInfo);
+                }
+
+                Log.Information("记录查询结果导出成功");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "导出记录查询结果到Excel失败");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 创建试验信息工作表
         /// </summary>
         private void CreateTestInfoSheet(ExcelWorksheet sheet, Testmaster testData)
         {
-            // 设置标题
             sheet.Cells["A1"].Value = "建筑材料不燃性试验报告";
-            sheet.Cells["A1:D1"].Merge = true;
-            sheet.Cells["A1"].Style.Font.Size = 16;
-            sheet.Cells["A1"].Style.Font.Bold = true;
-            sheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
-            sheet.Row(1).Height = 30;
+            sheet.Cells["A1:F1"].Merge = true;
+            sheet.Cells["A1:F1"].Style.Font.Size = 20;
+            sheet.Cells["A1:F1"].Style.Font.Bold = true;
+            sheet.Cells["A1:F1"].Style.Font.Color.SetColor(Color.White);
+            sheet.Cells["A1:F1"].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells["A1:F1"].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(20, 83, 91));
+            sheet.Cells["A1:F1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Cells["A1:F1"].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            sheet.Row(1).Height = 34;
 
-            // 设置试验信息
-            int row = 3;
-            AddInfoRow(sheet, ref row, "样品编号", testData.Productid);
-            AddInfoRow(sheet, ref row, "样品标识", testData.Testid);
-            AddInfoRow(sheet, ref row, "样品名称", testData.Product?.Productname);
-            AddInfoRow(sheet, ref row, "规格型号", testData.Product?.Specific);
-            AddInfoRow(sheet, ref row, "试验日期", testData.Testdate.ToString("yyyy-MM-dd"));
-            AddInfoRow(sheet, ref row, "操作员", testData.Operator);
-            AddInfoRow(sheet, ref row, "环境温度", testData.Ambtemp.ToString("F1") + "℃");
-            AddInfoRow(sheet, ref row, "环境湿度", testData.Ambhumi.ToString("F1") + "%");
-            AddInfoRow(sheet, ref row, "样品高度", testData.Product?.Height.ToString("F1") + "mm");
-            AddInfoRow(sheet, ref row, "样品直径", testData.Product?.Diameter.ToString("F1") + "mm");
-            AddInfoRow(sheet, ref row, "初始质量", testData.Preweight.ToString("F2") + "g");
-            AddInfoRow(sheet, ref row, "残余质量", testData.Postweight.ToString("F2") + "g");
-            AddInfoRow(sheet, ref row, "现象编码", testData.Phenocode);
-            AddInfoRow(sheet, ref row, "火焰时间", testData.Flametime.ToString("F1") + "s");
-            AddInfoRow(sheet, ref row, "持续时间", testData.Flameduration.ToString("F1") + "s");
-            AddInfoRow(sheet, ref row, "温度升高", testData.Deltatf.ToString("F1") + "℃");
-            AddInfoRow(sheet, ref row, "质量损失率", testData.LostweightPer.ToString("F2") + "%");
-            AddInfoRow(sheet, ref row, "设备编号", testData.Apparatusid);
-            AddInfoRow(sheet, ref row, "设备名称", testData.Apparatusname);
+            AddReportSubtitle(sheet, 2, $"导出时间：{DateTime.Now:yyyy-MM-dd HH:mm}");
 
-            // 设置列宽
-            sheet.Column(1).Width = 20;
-            sheet.Column(2).Width = 40;
+            AddSectionHeader(sheet, 3, "试验概览");
+            AddFieldRow(sheet, 4,
+                ("报告编号", testData.Rptno),
+                ("试验日期", FormatDateTime(testData.Testdate)),
+                ("操作员", testData.Operator));
+            AddFieldRow(sheet, 5,
+                ("样品编号", testData.Productid),
+                ("样品标识", testData.Testid),
+                ("试验结果", testData.Phenocode));
+
+            AddSectionHeader(sheet, 7, "样品信息");
+            AddFieldRow(sheet, 8,
+                ("样品名称", testData.Product?.Productname),
+                ("规格型号", testData.Product?.Specific),
+                ("样品高度", FormatNumber(testData.Product?.Height, "mm", 1)));
+            AddFieldRow(sheet, 9,
+                ("样品直径", FormatNumber(testData.Product?.Diameter, "mm", 1)),
+                ("初始质量", FormatNumber(testData.Preweight, "g", 2)),
+                ("残余质量", FormatNumber(testData.Postweight, "g", 2)));
+
+            AddSectionHeader(sheet, 12, "试验环境");
+            AddFieldRow(sheet, 13,
+                ("环境温度", FormatNumber(testData.Ambtemp, "℃", 1)),
+                ("环境湿度", FormatNumber(testData.Ambhumi, "%", 1)),
+                ("设备编号", testData.Apparatusid));
+            AddFieldRow(sheet, 14,
+                ("设备名称", testData.Apparatusname),
+                ("试验依据", testData.According),
+                ("试验时长", FormatNumber(testData.Totaltesttime, "s", 0)));
+
+            AddSectionHeader(sheet, 16, "试验结果");
+            AddFieldRow(sheet, 17,
+                ("火焰时间", FormatNumber(testData.Flametime, "s", 0)),
+                ("持续时间", FormatNumber(testData.Flameduration, "s", 0)),
+                ("温度升高", FormatNumber(testData.Deltatf, "℃", 1)));
+            AddFieldRow(sheet, 18,
+                ("质量损失", FormatNumber(testData.Lostweight, "g", 2)),
+                ("质量损失率", FormatNumber(testData.LostweightPer, "%", 2)),
+                ("现象编码", testData.Phenocode));
+
+            AddSectionHeader(sheet, 20, "备注");
+            sheet.Cells["A21:F22"].Merge = true;
+            sheet.Cells["A21"].Value = SafeText(ReportPathMemoHelper.GetDisplayMemo(testData.Memo));
+            sheet.Cells["A21:F22"].Style.WrapText = true;
+            sheet.Cells["A21:F22"].Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+            ApplyThinBorder(sheet.Cells["A21:F22"]);
+
+            ApplyReportPageSetup(sheet);
         }
 
-        /// <summary>
-        /// 添加信息行
-        /// </summary>
-        private void AddInfoRow(ExcelWorksheet sheet, ref int row, string label, string? value)
+        private void CreateQueryResultsSheet(
+            ExcelWorksheet sheet,
+            IReadOnlyList<Testmaster> records,
+            DateTime startDate,
+            DateTime endDate,
+            string productId,
+            string testId,
+            string operatorId)
         {
-            sheet.Cells[row, 1].Value = label;
-            sheet.Cells[row, 1].Style.Font.Bold = true;
-            sheet.Cells[row, 1].Style.Fill.PatternType = ExcelFillStyle.Solid;
-            sheet.Cells[row, 1].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(220, 230, 241));
-            
-            sheet.Cells[row, 2].Value = value ?? "";
-            
-            row++;
+            sheet.Cells["A1"].Value = "试验记录查询结果";
+            sheet.Cells["A1:I1"].Merge = true;
+            sheet.Cells["A1:I1"].Style.Font.Size = 18;
+            sheet.Cells["A1:I1"].Style.Font.Bold = true;
+            sheet.Cells["A1:I1"].Style.Font.Color.SetColor(Color.White);
+            sheet.Cells["A1:I1"].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells["A1:I1"].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(20, 83, 91));
+            sheet.Cells["A1:I1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            sheet.Row(1).Height = 32;
+
+            AddReportSubtitle(sheet, 2, $"导出时间：{DateTime.Now:yyyy-MM-dd HH:mm}，共 {records.Count} 条记录", 9);
+            AddSectionHeader(sheet, 3, "查询条件", 9);
+            AddFieldRow(sheet, 4,
+                ("日期范围", $"{startDate:yyyy-MM-dd} 至 {endDate:yyyy-MM-dd}"),
+                ("样品编号", BlankAsAll(productId)),
+                ("样品标识", BlankAsAll(testId)));
+            sheet.Cells[4, 7].Value = "操作员";
+            sheet.Cells[4, 8, 4, 9].Merge = true;
+            sheet.Cells[4, 8].Value = BlankAsAll(operatorId);
+            StyleLabelCell(sheet.Cells[4, 7]);
+            StyleValueCell(sheet.Cells[4, 8, 4, 9]);
+
+            var headers = new[]
+            {
+                "试验日期",
+                "样品编号",
+                "样品标识",
+                "样品名称",
+                "操作员",
+                "试验结果",
+                "初始质量(g)",
+                "残余质量(g)",
+                "试验备注"
+            };
+
+            for (int i = 0; i < headers.Length; i++)
+            {
+                sheet.Cells[6, i + 1].Value = headers[i];
+            }
+
+            using (var range = sheet.Cells["A6:I6"])
+            {
+                range.Style.Font.Bold = true;
+                range.Style.Font.Color.SetColor(Color.White);
+                range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(15, 118, 110));
+                range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                range.AutoFilter = true;
+            }
+
+            int row = 7;
+            foreach (var record in records)
+            {
+                sheet.Cells[row, 1].Value = record.Testdate;
+                sheet.Cells[row, 1].Style.Numberformat.Format = "yyyy-mm-dd hh:mm";
+                sheet.Cells[row, 2].Value = record.Productid;
+                sheet.Cells[row, 3].Value = record.Testid;
+                sheet.Cells[row, 4].Value = SafeText(record.Product?.Productname);
+                sheet.Cells[row, 5].Value = record.Operator;
+                sheet.Cells[row, 6].Value = record.Phenocode;
+                sheet.Cells[row, 7].Value = record.Preweight;
+                sheet.Cells[row, 8].Value = record.Postweight;
+                sheet.Cells[row, 9].Value = SafeText(ReportPathMemoHelper.GetDisplayMemo(record.Memo));
+                sheet.Cells[row, 7, row, 8].Style.Numberformat.Format = "0.00";
+                row++;
+            }
+
+            if (records.Count > 0)
+            {
+                ApplyThinBorder(sheet.Cells[6, 1, row - 1, 9]);
+                sheet.Cells[7, 1, row - 1, 9].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                sheet.Cells[7, 9, row - 1, 9].Style.WrapText = true;
+            }
+            else
+            {
+                ApplyThinBorder(sheet.Cells["A6:I6"]);
+            }
+
+            sheet.View.ShowGridLines = false;
+            sheet.View.FreezePanes(7, 1);
+            sheet.PrinterSettings.Orientation = eOrientation.Landscape;
+            sheet.PrinterSettings.FitToPage = true;
+            sheet.PrinterSettings.FitToWidth = 1;
+            sheet.PrinterSettings.FitToHeight = 0;
+
+            sheet.Column(1).Width = 20;
+            sheet.Column(2).Width = 16;
+            sheet.Column(3).Width = 18;
+            sheet.Column(4).Width = 24;
+            sheet.Column(5).Width = 14;
+            sheet.Column(6).Width = 14;
+            sheet.Column(7).Width = 14;
+            sheet.Column(8).Width = 14;
+            sheet.Column(9).Width = 34;
         }
 
+        private static void AddReportSubtitle(ExcelWorksheet sheet, int row, string text, int lastColumn = 6)
+        {
+            sheet.Cells[row, 1].Value = text;
+            sheet.Cells[row, 1, row, lastColumn].Merge = true;
+            sheet.Cells[row, 1, row, lastColumn].Style.Font.Color.SetColor(Color.FromArgb(71, 85, 105));
+            sheet.Cells[row, 1, row, lastColumn].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+        }
 
+        private static void AddSectionHeader(ExcelWorksheet sheet, int row, string text, int lastColumn = 6)
+        {
+            sheet.Cells[row, 1].Value = text;
+            sheet.Cells[row, 1, row, lastColumn].Merge = true;
+            sheet.Cells[row, 1, row, lastColumn].Style.Font.Bold = true;
+            sheet.Cells[row, 1, row, lastColumn].Style.Font.Color.SetColor(Color.White);
+            sheet.Cells[row, 1, row, lastColumn].Style.Fill.PatternType = ExcelFillStyle.Solid;
+            sheet.Cells[row, 1, row, lastColumn].Style.Fill.BackgroundColor.SetColor(Color.FromArgb(15, 118, 110));
+            sheet.Cells[row, 1, row, lastColumn].Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            sheet.Cells[row, 1, row, lastColumn].Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            sheet.Row(row).Height = 24;
+        }
+
+        private static void AddFieldRow(ExcelWorksheet sheet, int row, params (string Label, string? Value)[] fields)
+        {
+            for (int i = 0; i < fields.Length; i++)
+            {
+                int labelColumn = i * 2 + 1;
+                int valueColumn = labelColumn + 1;
+                sheet.Cells[row, labelColumn].Value = fields[i].Label;
+                sheet.Cells[row, valueColumn].Value = SafeText(fields[i].Value);
+                StyleLabelCell(sheet.Cells[row, labelColumn]);
+                StyleValueCell(sheet.Cells[row, valueColumn]);
+            }
+
+            sheet.Row(row).Height = 24;
+        }
+
+        private static void StyleLabelCell(ExcelRange range)
+        {
+            range.Style.Font.Bold = true;
+            range.Style.Font.Color.SetColor(Color.FromArgb(51, 65, 85));
+            range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            range.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(226, 232, 240));
+            range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+            range.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            ApplyThinBorder(range);
+        }
+
+        private static void StyleValueCell(ExcelRange range)
+        {
+            range.Style.Font.Color.SetColor(Color.FromArgb(15, 23, 42));
+            range.Style.Fill.PatternType = ExcelFillStyle.Solid;
+            range.Style.Fill.BackgroundColor.SetColor(Color.White);
+            range.Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
+            range.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+            ApplyThinBorder(range);
+        }
+
+        private static void ApplyThinBorder(ExcelRange range)
+        {
+            range.Style.Border.Top.Style = ExcelBorderStyle.Thin;
+            range.Style.Border.Bottom.Style = ExcelBorderStyle.Thin;
+            range.Style.Border.Left.Style = ExcelBorderStyle.Thin;
+            range.Style.Border.Right.Style = ExcelBorderStyle.Thin;
+            range.Style.Border.Top.Color.SetColor(Color.FromArgb(203, 213, 225));
+            range.Style.Border.Bottom.Color.SetColor(Color.FromArgb(203, 213, 225));
+            range.Style.Border.Left.Color.SetColor(Color.FromArgb(203, 213, 225));
+            range.Style.Border.Right.Color.SetColor(Color.FromArgb(203, 213, 225));
+        }
+
+        private static void ApplyReportPageSetup(ExcelWorksheet sheet)
+        {
+            sheet.View.ShowGridLines = false;
+            sheet.PrinterSettings.Orientation = eOrientation.Portrait;
+            sheet.PrinterSettings.FitToPage = true;
+            sheet.PrinterSettings.FitToWidth = 1;
+            sheet.PrinterSettings.FitToHeight = 0;
+
+            sheet.Column(1).Width = 14;
+            sheet.Column(2).Width = 22;
+            sheet.Column(3).Width = 14;
+            sheet.Column(4).Width = 22;
+            sheet.Column(5).Width = 14;
+            sheet.Column(6).Width = 22;
+        }
+
+        private static string FormatDateTime(DateTime value)
+        {
+            return value == default ? "-" : value.ToString("yyyy-MM-dd HH:mm");
+        }
+
+        private static string FormatNumber(double? value, string unit, int digits)
+        {
+            return value.HasValue ? $"{value.Value.ToString($"F{digits}")}{unit}" : "-";
+        }
+
+        private static string BlankAsAll(string value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "全部" : value;
+        }
+
+        private static string SafeText(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? "-" : value;
+        }
+
+        public void ExportChartToExcel(PlotModel plotModel, string filePath)
+        {
+            if (plotModel == null)
+            {
+                throw new ArgumentNullException(nameof(plotModel));
+            }
+
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                throw new ArgumentException("文件路径不能为空。", nameof(filePath));
+            }
+
+            var lineSeries = plotModel.Series
+                .OfType<OxyPlot.Series.LineSeries>()
+                .Where(series => series.Points.Count > 0)
+                .ToList();
+
+            if (lineSeries.Count == 0)
+            {
+                throw new InvalidOperationException("当前温度曲线没有可导出的数据。");
+            }
+
+            Log.Information("开始导出图表到Excel，文件路径: {FilePath}", filePath);
+
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            if (!string.Equals(Path.GetExtension(filePath), ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                filePath = Path.ChangeExtension(filePath, ".xlsx");
+            }
+
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
+            using var package = new ExcelPackage();
+            var chartSheet = package.Workbook.Worksheets.Add("温度曲线");
+            var dataSheet = package.Workbook.Worksheets.Add("曲线数据");
+
+            chartSheet.View.ShowGridLines = false;
+            chartSheet.Cells["A1:J1"].Merge = true;
+            chartSheet.Cells["A1"].Value = string.IsNullOrWhiteSpace(plotModel.Title) ? "温度曲线" : plotModel.Title;
+            chartSheet.Cells["A1"].Style.Font.Size = 18;
+            chartSheet.Cells["A1"].Style.Font.Bold = true;
+            chartSheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+            chartSheet.Cells["A2:J2"].Merge = true;
+            chartSheet.Cells["A2"].Value = $"导出时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            chartSheet.Cells["A2"].Style.Font.Color.SetColor(Color.FromArgb(71, 85, 105));
+            chartSheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+            dataSheet.Cells["A1:F1"].Merge = true;
+            dataSheet.Cells["A1"].Value = string.IsNullOrWhiteSpace(plotModel.Title) ? "温度曲线数据" : $"{plotModel.Title}数据";
+            dataSheet.Cells["A1"].Style.Font.Size = 16;
+            dataSheet.Cells["A1"].Style.Font.Bold = true;
+            dataSheet.Cells["A1"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+
+            dataSheet.Cells["A2:F2"].Merge = true;
+            dataSheet.Cells["A2"].Value = $"导出时间：{DateTime.Now:yyyy-MM-dd HH:mm:ss}";
+            dataSheet.Cells["A2"].Style.Font.Color.SetColor(Color.FromArgb(71, 85, 105));
+            dataSheet.Cells["A2"].Style.HorizontalAlignment = ExcelHorizontalAlignment.Right;
+
+            const int headerRow = 4;
+            const int compatibilityHeaderRow = 21;
+            chartSheet.Row(compatibilityHeaderRow).Hidden = true;
+            chartSheet.Cells[compatibilityHeaderRow, 1].Value = "时间(s)";
+
+            dataSheet.Cells[headerRow, 1].Value = "时间(s)";
+            dataSheet.Cells[headerRow, 1].Style.Font.Bold = true;
+
+            var xValues = lineSeries
+                .SelectMany(series => series.Points.Select(point => point.X))
+                .Distinct()
+                .OrderBy(value => value)
+                .ToList();
+
+            var seriesPointMaps = lineSeries
+                .Select(series => series.Points.ToDictionary(point => point.X, point => point.Y))
+                .ToList();
+
+            for (int seriesIndex = 0; seriesIndex < lineSeries.Count; seriesIndex++)
+            {
+                int column = seriesIndex + 2;
+                dataSheet.Cells[headerRow, column].Value = string.IsNullOrWhiteSpace(lineSeries[seriesIndex].Title)
+                    ? $"曲线{seriesIndex + 1}"
+                    : lineSeries[seriesIndex].Title;
+                dataSheet.Cells[headerRow, column].Style.Font.Bold = true;
+                chartSheet.Cells[compatibilityHeaderRow, column].Value = dataSheet.Cells[headerRow, column].Value;
+            }
+
+            int dataStartRow = headerRow + 1;
+            for (int rowIndex = 0; rowIndex < xValues.Count; rowIndex++)
+            {
+                int row = dataStartRow + rowIndex;
+                double xValue = xValues[rowIndex];
+                dataSheet.Cells[row, 1].Value = xValue;
+
+                for (int seriesIndex = 0; seriesIndex < lineSeries.Count; seriesIndex++)
+                {
+                    if (seriesPointMaps[seriesIndex].TryGetValue(xValue, out var yValue))
+                    {
+                        dataSheet.Cells[row, seriesIndex + 2].Value = yValue;
+                    }
+                }
+            }
+
+            using (var headerRange = dataSheet.Cells[headerRow, 1, headerRow, lineSeries.Count + 1])
+            {
+                headerRange.Style.Font.Bold = true;
+                headerRange.Style.Fill.PatternType = ExcelFillStyle.Solid;
+                headerRange.Style.Fill.BackgroundColor.SetColor(Color.FromArgb(15, 118, 110));
+                headerRange.Style.Font.Color.SetColor(Color.White);
+                headerRange.Style.HorizontalAlignment = ExcelHorizontalAlignment.Center;
+                ApplyThinBorder(headerRange);
+            }
+
+            if (xValues.Count > 0)
+            {
+                using var dataRange = dataSheet.Cells[headerRow + 1, 1, dataStartRow + xValues.Count - 1, lineSeries.Count + 1];
+                ApplyThinBorder(dataRange);
+            }
+
+            var chart = chartSheet.Drawings.AddChart("temperatureCurveChart", eChartType.XYScatterLinesNoMarkers);
+            chart.Title.Text = string.IsNullOrWhiteSpace(plotModel.Title) ? "温度曲线" : plotModel.Title;
+            chart.SetPosition(3, 0, 4, 0);
+            chart.SetSize(1100, 520);
+            chart.Style = eChartStyle.Style4;
+            chart.Legend.Position = eLegendPosition.Bottom;
+            chart.YAxis.Title.Text = "温度(℃)";
+            chart.XAxis.Title.Text = "时间(s)";
+
+            var xRange = dataSheet.Cells[dataStartRow, 1, dataStartRow + xValues.Count - 1, 1];
+            for (int seriesIndex = 0; seriesIndex < lineSeries.Count; seriesIndex++)
+            {
+                int column = seriesIndex + 2;
+                var excelSeries = chart.Series.Add(
+                    dataSheet.Cells[dataStartRow, column, dataStartRow + xValues.Count - 1, column],
+                    xRange);
+                excelSeries.Header = dataSheet.Cells[headerRow, column].Value?.ToString();
+                ApplyExcelSeriesStyle(excelSeries, lineSeries[seriesIndex]);
+            }
+
+            dataSheet.Cells.AutoFitColumns();
+            dataSheet.View.FreezePanes(dataStartRow, 1);
+            dataSheet.Column(1).Width = Math.Max(dataSheet.Column(1).Width, 12);
+            for (int column = 2; column <= lineSeries.Count + 1; column++)
+            {
+                dataSheet.Column(column).Width = Math.Max(dataSheet.Column(column).Width, 18);
+            }
+
+            package.SaveAs(new FileInfo(filePath));
+            Log.Information("图表导出到Excel成功");
+        }
+
+        private static void ApplyExcelSeriesStyle(ExcelChartSerie excelSeries, OxyPlot.Series.LineSeries sourceSeries)
+        {
+            var color = Color.FromArgb(
+                sourceSeries.Color.A,
+                sourceSeries.Color.R,
+                sourceSeries.Color.G,
+                sourceSeries.Color.B);
+
+            excelSeries.Border.Fill.Color = color;
+            excelSeries.Border.Width = Math.Max(2.25, sourceSeries.StrokeThickness);
+        }
 
         /// <summary>
         /// 导出图表到图片文件
@@ -215,66 +637,59 @@ namespace ISO11820WinForms.Services
         /// <param name="filePath">导出文件路径</param>
         /// <param name="width">图片宽度</param>
         /// <param name="height">图片高度</param>
-        /// <returns>是否成功</returns>
-        public bool ExportChartToImage(PlotModel plotModel, string filePath, int width = 1200, int height = 600)
+        public void ExportChartToImage(PlotModel plotModel, string filePath, int width = 1200, int height = 600)
         {
-            try
+            if (plotModel == null)
             {
-                Log.Information("开始导出图表到图片，文件路径: {FilePath}", filePath);
+                throw new ArgumentNullException(nameof(plotModel));
+            }
 
-                // 确定图片格式
-                var extension = Path.GetExtension(filePath).ToLower();
-                ImageFormat format;
+            if (string.IsNullOrWhiteSpace(filePath))
+            {
+                throw new ArgumentException("文件路径不能为空。", nameof(filePath));
+            }
 
-                switch (extension)
-                {
-                    case ".png":
-                        format = ImageFormat.Png;
-                        break;
-                    case ".jpg":
-                    case ".jpeg":
-                        format = ImageFormat.Jpeg;
-                        break;
-                    case ".bmp":
-                        format = ImageFormat.Bmp;
-                        break;
-                    default:
-                        format = ImageFormat.Png;
-                        break;
-                }
+            Log.Information("开始导出图表到图片，文件路径: {FilePath}", filePath);
 
-                // 使用OxyPlot的PngExporter导出图片
-                using (var bitmap = new System.Drawing.Bitmap(width, height))
-                {
-                    using (var graphics = Graphics.FromImage(bitmap))
-                    {
-                        graphics.Clear(Color.White);
-                        
-                        // 创建临时PlotView来渲染图表
-                        using (var plotView = new PlotView())
-                        {
-                            plotView.Model = plotModel;
-                            plotView.Width = width;
-                            plotView.Height = height;
-                            
-                            // 渲染到bitmap
-                            var rect = new Rectangle(0, 0, width, height);
-                            plotView.DrawToBitmap(bitmap, rect);
-                        }
-                    }
+            var directory = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
 
-                    // 保存图片
-                    bitmap.Save(filePath, format);
-                }
+            var extension = Path.GetExtension(filePath).ToLowerInvariant();
+            if (string.IsNullOrWhiteSpace(extension))
+            {
+                filePath += ".png";
+                extension = ".png";
+            }
 
+            if (extension == ".png")
+            {
+                PngExporter.Export(plotModel, filePath, width, height, 96);
                 Log.Information("图表导出成功");
-                return true;
+                return;
             }
-            catch (Exception ex)
+
+            var imageFormat = extension switch
             {
-                Log.Error(ex, "导出图表到图片失败");
-                return false;
-            }
+                ".jpg" => ImageFormat.Jpeg,
+                ".jpeg" => ImageFormat.Jpeg,
+                ".bmp" => ImageFormat.Bmp,
+                _ => throw new NotSupportedException($"不支持的图片格式: {extension}")
+            };
+
+            var exporter = new PngExporter
+            {
+                Width = width,
+                Height = height,
+                Resolution = 96
+            };
+
+            using var bitmap = exporter.ExportToBitmap(plotModel);
+            bitmap.Save(filePath, imageFormat);
+
+            Log.Information("图表导出成功");
         }
 
         /// <summary>

@@ -80,8 +80,22 @@ namespace ISO11820WinForms.UI
             button.Font = compact ? CompactButtonFont : EmphasisFont;
             button.Cursor = Cursors.Hand;
             button.UseVisualStyleBackColor = false;
-            button.Padding = compact ? new Padding(14, 6, 14, 6) : new Padding(16, 8, 16, 8);
-            button.MinimumSize = new Size(0, compact ? 40 : 44);
+            button.AutoEllipsis = false;
+            button.TextAlign = ContentAlignment.MiddleCenter;
+            button.Padding = compact ? new Padding(10, 6, 10, 6) : new Padding(16, 8, 16, 8);
+
+            var minimumHeight = compact ? 40 : 44;
+            var minimumWidth = compact ? 118 : 96;
+            var preferredTextWidth = TextRenderer.MeasureText(button.Text ?? string.Empty, button.Font).Width;
+            var preferredWidth = Math.Max(
+                minimumWidth,
+                preferredTextWidth + button.Padding.Left + button.Padding.Right + 18);
+
+            button.MinimumSize = new Size(preferredWidth, minimumHeight);
+            if (button.Width < preferredWidth)
+            {
+                button.Width = preferredWidth;
+            }
         }
 
         public static void StyleChipRadioButton(RadioButton radioButton, bool selected)

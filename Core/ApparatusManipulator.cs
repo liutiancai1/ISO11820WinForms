@@ -56,13 +56,13 @@ namespace ISO11820WinForms.Core
             ConstPower = constPower;
 
             var simConfig = ConfigurationHelper.GetSection<SimulationConfiguration>("Simulation");
-            if (simConfig?.EnableSimulation == true || simConfig?.SimulatePidController == true)
+            _isSimulationMode = simConfig?.EnableSimulation == true && simConfig.SimulatePidController;
+            if (_isSimulationMode)
             {
-                Log.Warning("已忽略 PID 仿真配置，当前固定为纯硬件模式");
+                Log.Information("已启用 PID 离线仿真模式，控制命令不会访问串口");
             }
 
-            _isSimulationMode = false;
-            if (_sharedModbusGateway == null)
+            if (!_isSimulationMode && _sharedModbusGateway == null)
             {
                 _pidClient = new ModbusRtuClient
                 {

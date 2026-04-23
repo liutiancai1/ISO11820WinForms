@@ -25,8 +25,27 @@ public class UiThemeReadabilityTests
 
         Assert.True(button.Font.Bold);
         Assert.True(button.Font.Size >= 11F, $"Expected compact button font >= 11pt, actual: {button.Font.Size}pt");
-        Assert.True(button.Padding.Left >= 12);
-        Assert.True(button.Padding.Right >= 12);
+        Assert.True(button.Padding.Left >= 10);
+        Assert.True(button.Padding.Right >= 10);
+    }
+
+    [Fact]
+    public void StyleButton_WhenCompact_ExpandsWidthForFourCharacterLabels()
+    {
+        var button = new Button
+        {
+            Text = "新建试验",
+            Width = 100
+        };
+
+        InvokeStyleButton(button, "Warning", compact: true);
+
+        var textWidth = TextRenderer.MeasureText(button.Text, button.Font).Width;
+        var requiredWidth = textWidth + button.Padding.Left + button.Padding.Right + 18;
+
+        Assert.True(button.MinimumSize.Width >= 118);
+        Assert.True(button.MinimumSize.Width >= requiredWidth, $"Expected minimum width >= {requiredWidth}, actual: {button.MinimumSize.Width}");
+        Assert.True(button.Width >= button.MinimumSize.Width, $"Expected button width >= minimum width, actual: {button.Width} < {button.MinimumSize.Width}");
     }
 
     [Theory]

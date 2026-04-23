@@ -163,6 +163,7 @@ namespace ISO11820WinForms.Forms
 
             BuildMetricDisplay();
             StylePrimaryButtons();
+            LayoutOperationButtons();
             StyleDataTables();
             ApplyChartTheme();
             ApplyMessageToggleButtonState();
@@ -192,8 +193,43 @@ namespace ISO11820WinForms.Forms
             UiTheme.StyleButton(btnQuerySearch, ButtonTone.Primary);
             UiTheme.StyleButton(btnQueryReset, ButtonTone.Neutral);
             UiTheme.StyleButton(btnQueryViewDetails, ButtonTone.Secondary);
+            UiTheme.StyleButton(btnQueryExportExcel, ButtonTone.Warning);
             UiTheme.StyleButton(btnQueryExportCsv, ButtonTone.Warning);
             UiTheme.StyleButton(btnQuerySummaryReport, ButtonTone.Primary);
+        }
+
+        private void LayoutOperationButtons()
+        {
+            var buttons = new[]
+            {
+                btnNewTest,
+                btnOpenRecord,
+                btnStopRecord,
+                btnRecordLogs,
+                btnParamSettings,
+                btnStartHeating,
+                btnStopHeating
+            };
+
+            panelOperations.SuspendLayout();
+
+            int x = 10;
+            const int y = 10;
+            const int gap = 12;
+            int maxHeight = 0;
+
+            foreach (var button in buttons)
+            {
+                button.Size = new Size(
+                    Math.Max(button.Width, button.MinimumSize.Width),
+                    Math.Max(button.Height, button.MinimumSize.Height));
+                button.Location = new Point(x, y);
+                x += button.Width + gap;
+                maxHeight = Math.Max(maxHeight, button.Height);
+            }
+
+            panelOperations.Height = y + maxHeight + 10;
+            panelOperations.ResumeLayout();
         }
 
         private void StyleDataTables()
@@ -1232,7 +1268,9 @@ namespace ISO11820WinForms.Forms
                 {
                     Title = "实时温度趋势",
                     Background = OxyColor.FromRgb(UiTheme.SurfaceRaised.R, UiTheme.SurfaceRaised.G, UiTheme.SurfaceRaised.B),
-                    TitleFontSize = 16
+                    TitleFontSize = 16,
+                    PlotMargins = new OxyThickness(74, 34, 24, 70),
+                    Padding = new OxyThickness(8, 6, 12, 12)
                 };
 
                 // 配置X轴（时间轴）
@@ -1245,7 +1283,15 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 60,  // 每60秒一个主刻度
                     MinorStep = 10,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
+                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209),
+                    AxislineStyle = LineStyle.Solid,
+                    AxislineColor = OxyColor.FromRgb(96, 108, 120),
+                    TicklineColor = OxyColor.FromRgb(96, 108, 120),
+                    TextColor = OxyColor.FromRgb(73, 85, 96),
+                    TitleColor = OxyColor.FromRgb(44, 54, 63),
+                    FontSize = 10,
+                    TitleFontSize = 11,
+                    AxisTitleDistance = 12
                 };
                 _chartModel.Axes.Add(xAxis);
 
@@ -1278,9 +1324,9 @@ namespace ISO11820WinForms.Forms
                 {
                     Title = "TF2(炉内温度2)",
                     Color = OxyColor.FromRgb(245, 128, 87),
-                    StrokeThickness = 2.6,
+                    StrokeThickness = 2.8,
                     MarkerType = MarkerType.None,
-                    LineStyle = LineStyle.Dash
+                    LineStyle = LineStyle.Solid
                 };
                 _chartModel.Series.Add(_seriesTF2);
 
@@ -1288,9 +1334,9 @@ namespace ISO11820WinForms.Forms
                 {
                     Title = "TS(表面温度)",
                     Color = OxyColor.FromRgb(70, 178, 137),
-                    StrokeThickness = 2.6,
+                    StrokeThickness = 2.8,
                     MarkerType = MarkerType.None,
-                    LineStyle = LineStyle.Dot
+                    LineStyle = LineStyle.Solid
                 };
                 _chartModel.Series.Add(_seriesTS);
 
@@ -1300,7 +1346,7 @@ namespace ISO11820WinForms.Forms
                     Color = OxyColor.FromRgb(244, 191, 76),
                     StrokeThickness = 2.8,
                     MarkerType = MarkerType.None,
-                    LineStyle = LineStyle.DashDot
+                    LineStyle = LineStyle.Solid
                 };
                 _chartModel.Series.Add(_seriesTC);
 
@@ -4378,6 +4424,85 @@ namespace ISO11820WinForms.Forms
         /*
          * 功能: 导出CSV按钮点击事件
          */
+        private async void btnQueryExportExcel_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Log.Information("用户点击导出查询结果Excel按钮");
+
+                if (dgvQueryData.Rows.Count == 0)
+                {
+                    MessageBox.Show("没有可导出的数据，请先查询试验记录。",
+                        "提示",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                    return;
+                }
+
+                var records = dgvQueryData.Rows
+                    .Cast<DataGridViewRow>()
+                    .Where(row => !row.IsNewRow)
+                    .Select(row => row.DataBoundItem as Testmaster)
+                    .Where(record => record != null)
+                    .Cast<Testmaster>()
+                    .ToList();
+
+                if (records.Count == 0)
+                {
+                    MessageBox.Show("无法获取查询结果数据。",
+                        "错误",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Error);
+                    return;
+                }
+
+                using (SaveFileDialog saveFileDialog = new SaveFileDialog())
+                {
+                    saveFileDialog.Filter = "Excel文件 (*.xlsx)|*.xlsx";
+                    saveFileDialog.FileName = $"试验记录查询结果_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+                    saveFileDialog.Title = "导出查询结果";
+
+                    if (saveFileDialog.ShowDialog() == DialogResult.OK)
+                    {
+                        btnQueryExportExcel.Enabled = false;
+
+                        using (var progress = new ProgressIndicator(this, "正在导出Excel..."))
+                        {
+                            var success = await _exportService.ExportQueryResultsToExcel(
+                                records,
+                                saveFileDialog.FileName,
+                                dtpQueryStartDate.Value.Date,
+                                dtpQueryEndDate.Value.Date,
+                                txtQueryProductId.Text.Trim(),
+                                txtQueryTestId.Text.Trim(),
+                                txtQueryOperator.Text.Trim());
+
+                            if (success)
+                            {
+                                Log.Information("导出查询结果Excel成功，文件路径: {FilePath}", saveFileDialog.FileName);
+                                ExceptionHandler.ShowSuccess($"导出成功！\n文件保存在: {saveFileDialog.FileName}");
+                                AppendSystemMessage($"查询结果已导出到Excel: {Path.GetFileName(saveFileDialog.FileName)}");
+                            }
+                            else
+                            {
+                                ExceptionHandler.ShowWarning("导出查询结果Excel失败，请检查数据是否完整。");
+                            }
+                        }
+
+                        btnQueryExportExcel.Enabled = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                ExceptionHandler.HandleDatabaseException(ex, "导出查询结果Excel");
+                btnQueryExportExcel.Enabled = true;
+            }
+        }
+
+        /*
+         * 功能: 导出CSV按钮点击事件
+         */
         private async void btnQueryExportCsv_Click(object sender, EventArgs e)
         {
             try
@@ -4533,26 +4658,41 @@ namespace ISO11820WinForms.Forms
                 // 显示保存文件对话框
                 using (SaveFileDialog saveFileDialog = new SaveFileDialog())
                 {
-                    saveFileDialog.Filter = "PNG图片 (*.png)|*.png|JPEG图片 (*.jpg)|*.jpg|BMP图片 (*.bmp)|*.bmp";
-                    saveFileDialog.FileName = $"温度曲线_{DateTime.Now:yyyyMMdd_HHmmss}.png";
+                    saveFileDialog.Filter = "Excel文件 (*.xlsx)|*.xlsx|PNG图片 (*.png)|*.png|JPEG图片 (*.jpg)|*.jpg|BMP图片 (*.bmp)|*.bmp";
+                    saveFileDialog.FileName = $"温度曲线_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
                     saveFileDialog.Title = "导出温度曲线图表";
 
                     if (saveFileDialog.ShowDialog() == DialogResult.OK)
                     {
                         using (var progress = new ProgressIndicator(this, "正在导出图表..."))
                         {
-                            // 使用ExportService导出图表
-                            var success = _exportService.ExportChartToImage(_chartModel, saveFileDialog.FileName, 1200, 600);
-
-                            if (success)
+                            var extension = Path.GetExtension(saveFileDialog.FileName).ToLowerInvariant();
+                            if (extension == ".xlsx")
                             {
-                                Log.Information("导出图表成功，文件路径: {FilePath}", saveFileDialog.FileName);
-                                ExceptionHandler.ShowSuccess($"导出成功！\n文件保存在: {saveFileDialog.FileName}");
-                                AppendSystemMessage($"温度曲线图表已导出: {Path.GetFileName(saveFileDialog.FileName)}");
+                                _exportService.ExportChartToExcel(_chartModel, saveFileDialog.FileName);
                             }
                             else
                             {
-                                ExceptionHandler.ShowWarning("导出图表失败。");
+                                _exportService.ExportChartToImage(_chartModel, saveFileDialog.FileName, 1200, 600);
+                            }
+
+                            var exportedFilePath = Path.GetFullPath(saveFileDialog.FileName);
+                            Log.Information("导出图表成功，文件路径: {FilePath}", exportedFilePath);
+                            AppendSystemMessage($"温度曲线图表已导出: {exportedFilePath}");
+
+                            var openResult = MessageBox.Show(
+                                $"温度曲线导出成功。\n\n保存位置：\n{exportedFilePath}\n\n是否立即打开文件？",
+                                "导出成功",
+                                MessageBoxButtons.YesNo,
+                                MessageBoxIcon.Information);
+
+                            if (openResult == DialogResult.Yes)
+                            {
+                                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                                {
+                                    FileName = exportedFilePath,
+                                    UseShellExecute = true
+                                });
                             }
                         }
                     }

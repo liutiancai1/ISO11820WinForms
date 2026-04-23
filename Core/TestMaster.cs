@@ -357,10 +357,11 @@ namespace ISO11820WinForms.Core
          *       1.设置当前试验使用的恒功率值为: PID温度控制器连续10分钟的输出值的平均值
          *       2.向试验设备控制器发送指令,切换加热方式为手动控制方式
          */
-        public bool StartRecording()
+        public virtual bool StartRecording()
         {
             /* 开始样品试验前的初始化工作 */
-            if (_apparatusManipulator.SetOutputPower(Convert.ToUInt16(queuePidOutput.Average()))
+            var averageOutput = queuePidOutput.Count > 0 ? queuePidOutput.Average() : 0;
+            if (_apparatusManipulator.SetOutputPower(Convert.ToUInt16(averageOutput))
                 && _apparatusManipulator.SwitchToManual())
             {
                 //重置计时器
@@ -372,7 +373,7 @@ namespace ISO11820WinForms.Core
             return false;
         }
 
-        public bool StopRecording()
+        public virtual bool StopRecording()
         {
             //向试验设备控制器发送指令,切换加热方式为PID控温            
             if (_apparatusManipulator.SwitchToPID())

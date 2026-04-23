@@ -95,6 +95,7 @@
             dgvQueryData = new DataGridView();
             btnQueryViewDetails = new Button();
             btnQueryExportCsv = new Button();
+            btnQueryExportExcel = new Button();
             btnQuerySummaryReport = new Button();
             grpReportQuery = new GroupBox();
             lblReportStartDate = new Label();
@@ -1141,6 +1142,7 @@
             panelQuery.BackColor = Color.White;
             panelQuery.Controls.Add(btnQuerySummaryReport);
             panelQuery.Controls.Add(btnQueryExportCsv);
+            panelQuery.Controls.Add(btnQueryExportExcel);
             panelQuery.Controls.Add(btnQueryViewDetails);
             panelQuery.Controls.Add(dgvQueryData);
             panelQuery.Controls.Add(grpQueryConditions);
@@ -1318,7 +1320,7 @@
             btnQueryViewDetails.FlatStyle = FlatStyle.Flat;
             btnQueryViewDetails.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             btnQueryViewDetails.ForeColor = Color.White;
-            btnQueryViewDetails.Location = new Point(1073, 560);
+            btnQueryViewDetails.Location = new Point(963, 560);
             btnQueryViewDetails.Name = "btnQueryViewDetails";
             btnQueryViewDetails.Size = new Size(100, 35);
             btnQueryViewDetails.TabIndex = 2;
@@ -1336,10 +1338,25 @@
             btnQueryExportCsv.Location = new Point(1183, 560);
             btnQueryExportCsv.Name = "btnQueryExportCsv";
             btnQueryExportCsv.Size = new Size(100, 35);
-            btnQueryExportCsv.TabIndex = 3;
+            btnQueryExportCsv.TabIndex = 4;
             btnQueryExportCsv.Text = "导出CSV";
             btnQueryExportCsv.UseVisualStyleBackColor = false;
             btnQueryExportCsv.Click += btnQueryExportCsv_Click;
+            // 
+            // btnQueryExportExcel
+            // 
+            btnQueryExportExcel.Anchor = AnchorStyles.Bottom | AnchorStyles.Right;
+            btnQueryExportExcel.BackColor = Color.FromArgb(40, 167, 69);
+            btnQueryExportExcel.FlatStyle = FlatStyle.Flat;
+            btnQueryExportExcel.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+            btnQueryExportExcel.ForeColor = Color.White;
+            btnQueryExportExcel.Location = new Point(1073, 560);
+            btnQueryExportExcel.Name = "btnQueryExportExcel";
+            btnQueryExportExcel.Size = new Size(100, 35);
+            btnQueryExportExcel.TabIndex = 3;
+            btnQueryExportExcel.Text = "导出Excel";
+            btnQueryExportExcel.UseVisualStyleBackColor = false;
+            btnQueryExportExcel.Click += btnQueryExportExcel_Click;
             // 
             // btnQuerySummaryReport
             // 
@@ -1348,10 +1365,10 @@
             btnQuerySummaryReport.FlatStyle = FlatStyle.Flat;
             btnQuerySummaryReport.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
             btnQuerySummaryReport.ForeColor = Color.White;
-            btnQuerySummaryReport.Location = new Point(963, 560);
+            btnQuerySummaryReport.Location = new Point(853, 560);
             btnQuerySummaryReport.Name = "btnQuerySummaryReport";
             btnQuerySummaryReport.Size = new Size(100, 35);
-            btnQuerySummaryReport.TabIndex = 4;
+            btnQuerySummaryReport.TabIndex = 5;
             btnQuerySummaryReport.Text = "汇总报告";
             btnQuerySummaryReport.UseVisualStyleBackColor = false;
             btnQuerySummaryReport.Click += btnQuerySummaryReport_Click;
@@ -1524,6 +1541,7 @@
         private System.Windows.Forms.DataGridView dgvQueryData;
         private System.Windows.Forms.Button btnQueryViewDetails;
         private System.Windows.Forms.Button btnQueryExportCsv;
+        private System.Windows.Forms.Button btnQueryExportExcel;
         private System.Windows.Forms.Button btnQuerySummaryReport;
     }
 }
