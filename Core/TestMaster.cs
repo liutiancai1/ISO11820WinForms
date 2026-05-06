@@ -146,6 +146,7 @@ namespace ISO11820WinForms.Core
         /* 本次试验的产品数据及试样数据缓存 */
         protected Productmaster? _productMaster;
         protected Testmaster? _testmaster;
+        public ReportResult? LastPostTestReportResult { get; private set; }
 
         /* [Recording]状态 与 [Preparing]状态 与 [Ready]状态 共通数据结构 */
         //传感器采集数据缓存
@@ -432,6 +433,16 @@ namespace ISO11820WinForms.Core
         public virtual void SetTestData(Testmaster testmaster)
         {
             _testmaster = testmaster;
+            LastPostTestReportResult = null;
+        }
+
+        public bool HasActiveTest => _testmaster != null;
+
+        public bool HasActiveProduct => _productMaster != null;
+
+        public Testmaster? GetActiveTestOrNull()
+        {
+            return _testmaster;
         }
 
         public virtual Testmaster GetTestData()
@@ -442,6 +453,12 @@ namespace ISO11820WinForms.Core
         public virtual void ResetTestData()
         {
             _testmaster = null;
+            LastPostTestReportResult = null;
+        }
+
+        protected void PublishPostTestReportResult(ReportResult? result)
+        {
+            LastPostTestReportResult = result;
         }
 
         public void SetPhenomenon(string phenocode, string memo)
@@ -520,23 +537,26 @@ namespace ISO11820WinForms.Core
         public virtual async Task PostTestProcess()
         {
             /* 创建本地存储目录 */
-            string prodpath = $"D:\\ISO11820\\{_testmaster!.Productid}";
-            string smppath = $"{prodpath}\\{_testmaster.Testid}";
-            string datapath = $"{smppath}\\data";
-            string rptpath = $"{smppath}\\report";
+            if (_testmaster == null)
+            {
+                throw new InvalidOperationException("Testmaster 未设置，无法执行试验后处理。");
+            }
             try
             {
                 /* 创建本次试验结果文件的存储目录 */
-                Directory.CreateDirectory(prodpath);
-                Directory.CreateDirectory(smppath);
-                Directory.CreateDirectory(datapath);
-                Directory.CreateDirectory(rptpath);
 
                 /* Requirement 8.1: 使用CsvDataService保存本次试验数据文件 */
                 var csvService = new ISO11820WinForms.Services.CsvDataService();
                 var csvFilePath = ISO11820WinForms.Services.CsvDataService.GetSensorDataFilePath(
                     _testmaster.Productid, _testmaster.Testid);
+                var csvDirectory = Path.GetDirectoryName(csvFilePath);
+                if (!string.IsNullOrWhiteSpace(csvDirectory))
+                {
+                    Directory.CreateDirectory(csvDirectory);
+                }
                 await csvService.SerializeAsync(_bufSensorData, csvFilePath);
+
+                ApplyDerivedTestResults();
 
                 // 更新本次试验数据至试验数据库（记录已在新建试验时创建）
                 using (var ctx = new ISO11820DbContext())
@@ -555,7 +575,27 @@ namespace ISO11820WinForms.Core
                         existingTest.Totaltesttime = _testmaster.Totaltesttime;
                         existingTest.Maxtf1 = _testmaster.Maxtf1;
                         existingTest.Maxtf1Time = _testmaster.Maxtf1Time;
+                        existingTest.Maxtf2 = _testmaster.Maxtf2;
+                        existingTest.Maxtf2Time = _testmaster.Maxtf2Time;
+                        existingTest.Maxts = _testmaster.Maxts;
+                        existingTest.MaxtsTime = _testmaster.MaxtsTime;
+                        existingTest.Maxtc = _testmaster.Maxtc;
+                        existingTest.MaxtcTime = _testmaster.MaxtcTime;
                         existingTest.Finaltf1 = _testmaster.Finaltf1;
+                        existingTest.Finaltf1Time = _testmaster.Finaltf1Time;
+                        existingTest.Finaltf2 = _testmaster.Finaltf2;
+                        existingTest.Finaltf2Time = _testmaster.Finaltf2Time;
+                        existingTest.Finalts = _testmaster.Finalts;
+                        existingTest.FinaltsTime = _testmaster.FinaltsTime;
+                        existingTest.Finaltc = _testmaster.Finaltc;
+                        existingTest.FinaltcTime = _testmaster.FinaltcTime;
+                        existingTest.Deltatf1 = _testmaster.Deltatf1;
+                        existingTest.Deltatf2 = _testmaster.Deltatf2;
+                        existingTest.Deltats = _testmaster.Deltats;
+                        existingTest.Deltatf = _testmaster.Deltatf;
+                        existingTest.Deltatc = _testmaster.Deltatc;
+                        existingTest.Lostweight = _testmaster.Lostweight;
+                        existingTest.LostweightPer = _testmaster.LostweightPer;
                         existingTest.Flag = "10000000"; // 标记试验已完成
                         await ctx.SaveChangesAsync();
                     }
@@ -567,18 +607,22 @@ namespace ISO11820WinForms.Core
                     }
                 }
 
+                var productId = _testmaster.Productid;
+                var testId = _testmaster.Testid;
+                PublishPostTestReportResult(await GenerateTestReportAsync(productId, testId));
+
                 // 在后台线程生成报告（不阻塞主流程）
                 _ = Task.Run(async () =>
                 {
                     try
                     {
-                        await GenerateTestReportAsync(_testmaster.Productid, _testmaster.Testid);
+                        await GenerateTestReportAsync(productId, testId);
                     }
                     catch (Exception ex)
                     {
                         // 记录错误但不影响试验数据保存
                         Serilog.Log.Error(ex, "生成试验报告失败: ProductId={ProductId}, TestId={TestId}", 
-                            _testmaster.Productid, _testmaster.Testid);
+                            productId, testId);
                     }
                 });
             }
@@ -588,13 +632,68 @@ namespace ISO11820WinForms.Core
             }
         }
 
+        protected void ApplyDerivedTestResults()
+        {
+            if (_testmaster == null || _bufSensorData.Count == 0)
+            {
+                return;
+            }
+
+            var maxTf1 = _bufSensorData.OrderByDescending(x => x.Temp1).First();
+            var maxTf2 = _bufSensorData.OrderByDescending(x => x.Temp2).First();
+            var maxTs = _bufSensorData.OrderByDescending(x => x.TempSuf).First();
+            var maxTc = _bufSensorData.OrderByDescending(x => x.TempCen).First();
+            var final = _bufSensorData.OrderBy(x => x.Timer).Last();
+
+            _testmaster.Maxtf1 = maxTf1.Temp1;
+            _testmaster.Maxtf1Time = maxTf1.Timer;
+            _testmaster.Maxtf2 = maxTf2.Temp2;
+            _testmaster.Maxtf2Time = maxTf2.Timer;
+            _testmaster.Maxts = maxTs.TempSuf;
+            _testmaster.MaxtsTime = maxTs.Timer;
+            _testmaster.Maxtc = maxTc.TempCen;
+            _testmaster.MaxtcTime = maxTc.Timer;
+
+            _testmaster.Finaltf1 = final.Temp1;
+            _testmaster.Finaltf1Time = final.Timer;
+            _testmaster.Finaltf2 = final.Temp2;
+            _testmaster.Finaltf2Time = final.Timer;
+            _testmaster.Finalts = final.TempSuf;
+            _testmaster.FinaltsTime = final.Timer;
+            _testmaster.Finaltc = final.TempCen;
+            _testmaster.FinaltcTime = final.Timer;
+
+            _testmaster.Deltatf1 = _testmaster.Finaltf1 - _testmaster.Ambtemp;
+            _testmaster.Deltatf2 = _testmaster.Finaltf2 - _testmaster.Ambtemp;
+            _testmaster.Deltats = _testmaster.Finalts - _testmaster.Ambtemp;
+            _testmaster.Deltatf = _testmaster.Deltats;
+            _testmaster.Deltatc = _testmaster.Finaltc - _testmaster.Ambtemp;
+
+            _testmaster.Lostweight = _testmaster.Preweight - _testmaster.Postweight;
+            _testmaster.LostweightPer = _testmaster.Preweight > 0
+                ? _testmaster.Lostweight / _testmaster.Preweight * 100
+                : 0;
+
+            if (_testmaster.Totaltesttime <= 0)
+            {
+                _testmaster.Totaltesttime = final.Timer;
+            }
+
+            _testmaster.Flag = "10000000";
+        }
+
         /// <summary>
         /// 生成试验报告（在后台线程执行）
         /// </summary>
-        private async Task GenerateTestReportAsync(string productId, string testId)
+        private async Task<ReportResult> GenerateTestReportAsync(string productId, string testId)
         {
             try
             {
+                if (LastPostTestReportResult != null)
+                {
+                    return LastPostTestReportResult;
+                }
+
                 // 获取配置服务
                 var configService = ISO11820WinForms.Services.ConfigurationService.Instance;
                 var reportConfig = configService.ReportConfig;
@@ -622,11 +721,17 @@ namespace ISO11820WinForms.Core
                 {
                     logger.Warning("试验报告生成失败: {ErrorMessage}", result.ErrorMessage);
                 }
+
+                return result;
             }
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "生成试验报告时发生异常");
-                throw;
+                return new ReportResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
             }
         }
 
@@ -675,6 +780,7 @@ namespace ISO11820WinForms.Core
                         apparatus.Checkdatef = checkDateFrom;
                         apparatus.Checkdatet = checkDateTo;
                         apparatus.Pidport = pidPort;
+                        apparatus.Powerport = pidPort;
                         apparatus.Constpower = constPower;
 
                         // 保存更改
@@ -697,7 +803,7 @@ namespace ISO11820WinForms.Core
                             Checkdatet = checkDateTo,
                             Pidport = pidPort,
                             Constpower = constPower,
-                            Powerport = "COM2"  // 默认值
+                            Powerport = pidPort
                         };
                         ctx.Apparatuses.Add(newApparatus);
                         await ctx.SaveChangesAsync();

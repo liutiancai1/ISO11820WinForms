@@ -33,6 +33,7 @@ namespace ISO11820WinForms.Global
         public AppGlobalWinForms Global { get; }
         public IModbusRtuGateway? SharedModbusGateway { get; private set; }
         public TestMaster1? Master1 { get; private set; }
+        public SampleTestSessionService? Session { get; private set; }
 
         private SystemContext()
         {
@@ -160,6 +161,7 @@ namespace ISO11820WinForms.Global
                 Log.Information("已将采集模拟器绑定到试验控制器和 PID 控制器");
             }
 
+            Session = new SampleTestSessionService(Master1);
             Masters.addMaster(Master1);
 
             Log.Information("已创建一号试验炉控制器 ID: {MasterId}", Master1.MasterId);
@@ -185,6 +187,9 @@ namespace ISO11820WinForms.Global
             Daq.Dispose();
             SharedModbusGateway?.Dispose();
             SharedModbusGateway = null;
+            Session = null;
+            Master1 = null;
+            Masters.DictTestMaster.Clear();
 
             CacheService.Instance.ClearAllCache();
             Log.Information("已清理所有缓存");

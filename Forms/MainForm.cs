@@ -12,6 +12,7 @@ using OxyPlot.Axes;
 using OxyPlot.Series;
 using OxyPlot.WindowsForms;
 using ISO11820WinForms.Core;
+using ISO11820WinForms.Forms.Controls;
 using ISO11820WinForms.Services;
 using ISO11820WinForms.Global;
 using Serilog;
@@ -63,6 +64,7 @@ namespace ISO11820WinForms.Forms
         private TextBox? _txtTDevLevela, _txtTDevLevelb, _txtTDevLevelc;
         private TextBox? _txtTAvgDevAxis, _txtTAvgDevLevel;
         private Dictionary<int, TextBox> _centerTempTextBoxes = new Dictionary<int, TextBox>();
+        private CalibrationView? _calibrationView;
 
         public MainForm(Operator user)
         {
@@ -99,6 +101,10 @@ namespace ISO11820WinForms.Forms
             AppendSystemMessage("系统已启动，操作员: " + _currentUser.Userid);
             UpdateButtonStates(MasterStatus.Idle);
             ReportHardwareStartupStatus();
+            if (_testMaster1 != null && !_testMaster1.IsFlameDetectionEnabled)
+            {
+                AppendSystemMessage("当前版本未启用火焰自动检测，火焰时间和持续时间请在试验结束后手工录入。");
+            }
 
             // 初始化系统校验视图
             InitializeCalibrationView();
@@ -512,6 +518,13 @@ namespace ISO11820WinForms.Forms
             try
             {
                 Log.Information("用户点击新建试验按钮");
+                var currentMaster = _testMaster1 ?? SystemContext.Current.Master1;
+                if (!CanCreateNewTest(currentMaster?.Status ?? MasterStatus.Idle, currentMaster?.GetActiveTestOrNull()))
+                {
+                    ExceptionHandler.ShowWarning("当前试验已完成但尚未保存，请先点击“记录试后数据”并生成报告。", "请先保存当前试验");
+                    return;
+                }
+
                 using (NewTestForm newTestForm = new NewTestForm())
                 {
                     if (newTestForm.ShowDialog(this) == DialogResult.OK)
@@ -557,31 +570,33 @@ namespace ISO11820WinForms.Forms
 
             try
             {
-                if (!EnsureHardwareReadyForStart("开始升温", requireSensor: true, requirePid: true))
-                {
-                    return;
-                }
-
                 using (var progress = new ProgressIndicator(this, "正在启动加热..."))
                 {
                     try
                     {
                         Log.Information("用户点击开始升温按钮");
 
-                        // 从全局上下文获取TestMaster实例（标准单例访问模式）
-                        var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
+                        var session = GetSessionOrWarn();
+                        if (session == null)
+                        {
+                            return;
+                        }
 
-                        // 调用TestMaster的异步升温方法
-                        var result = await testMaster.StartHeatingAsync();
+                        if (!EnsureHardwareReadyForStart("开始升温", requireSensor: true, requirePid: true))
+                        {
+                            return;
+                        }
 
-                        if (result == 0)
+                        var result = await session.StartHeatingAsync();
+
+                        if (result.Success)
                         {
                             Log.Information("试验装置开始加热成功");
                             AppendSystemMessage("试验装置开始加热。");
                         }
                         else
                         {
-                            Log.Warning("试验装置开始加热失败，通信异常，返回码: {Result}", result);
+                            Log.Warning("试验装置开始加热失败: {Message}", result.Message);
                             ExceptionHandler.ShowWarning("通信异常，炉温加热未能启动。\n请检查设备连接。");
                         }
                     }
@@ -612,21 +627,23 @@ namespace ISO11820WinForms.Forms
                 }
 
                 Log.Information("用户点击停止升温按钮");
-                
-                // 从全局上下文获取TestMaster实例
-                var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
 
-                // 调用TestMaster的停止加热方法
-                var result = testMaster.StopHeating();
+                var session = GetSessionOrWarn();
+                if (session == null)
+                {
+                    return;
+                }
 
-                if (result == 0)
+                var result = session.StopHeating();
+
+                if (result.Success)
                 {
                     Log.Information("试验装置停止加热成功");
                     AppendSystemMessage("试验装置已停止加热。");
                 }
                 else
                 {
-                    Log.Warning("试验装置停止加热失败，通信异常，返回码: {Result}", result);
+                    Log.Warning("试验装置停止加热失败: {Message}", result.Message);
                     ExceptionHandler.ShowWarning("通信异常，试验装置未能停止加热。\n请检查设备连接。");
                 }
             }
@@ -644,14 +661,10 @@ namespace ISO11820WinForms.Forms
             try
             {
                 Log.Information("用户点击开始记录按钮");
-                
-                // 从全局上下文获取TestMaster实例
-                var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
 
-                // 判断是否已新建试验（业务规则验证）
-                if (testMaster.GetTestData() == null)
+                var session = GetSessionOrWarn();
+                if (session == null)
                 {
-                    ExceptionHandler.ShowWarning("试验控制器尚未接收试验样品信息，请先新建本次试验。", "无法开始记录");
                     return;
                 }
 
@@ -660,20 +673,25 @@ namespace ISO11820WinForms.Forms
                     return;
                 }
 
-                // 调用TestMaster的开始记录方法
-                var result = testMaster.StartRecording();
+                var result = session.StartRecording();
 
-                if (result)
+                if (result.Success)
                 {
-                    var testData = testMaster.GetTestData();
+                    var testData = TryGetCurrentTestData();
+                    if (testData == null)
+                    {
+                        ExceptionHandler.ShowWarning("试验控制器尚未接收试验样品信息，请先新建本次试验。", "无法开始记录");
+                        return;
+                    }
+
                     Log.Information("开始记录试验数据成功，样品编号: {ProductId}, 样品标识: {TestId}", 
                         testData.Productid, testData.Testid);
                     AppendSystemMessage($"开始记录试验数据。样品编号: [{testData.Productid}], 样品标识: [{testData.Testid}]");
                 }
                 else
                 {
-                    Log.Warning("开始记录失败：设备连接异常");
-                    ExceptionHandler.ShowWarning("启动记录失败，请检查设备连接。");
+                    Log.Warning("开始记录失败: {Message}", result.Message);
+                    ExceptionHandler.ShowWarning(result.Message, "无法开始记录");
                 }
             }
             catch (Exception ex)
@@ -696,22 +714,24 @@ namespace ISO11820WinForms.Forms
                 }
 
                 Log.Information("用户点击停止记录按钮");
-                
-                // 从全局上下文获取TestMaster实例
-                var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
 
-                // 调用TestMaster的停止记录方法
-                var result = testMaster.StopRecording();
+                var session = GetSessionOrWarn();
+                if (session == null)
+                {
+                    return;
+                }
 
-                if (result)
+                var result = session.StopRecording();
+
+                if (result.Success)
                 {
                     Log.Information("停止记录成功");
                     AppendSystemMessage("计时结束。");
                 }
                 else
                 {
-                    Log.Warning("停止记录失败：设备连接异常");
-                    ExceptionHandler.ShowWarning("停止记录失败，请检查设备连接。");
+                    Log.Warning("停止记录失败: {Message}", result.Message);
+                    ExceptionHandler.ShowWarning(result.Message, "无法停止记录");
                 }
             }
             catch (Exception ex)
@@ -731,13 +751,31 @@ namespace ISO11820WinForms.Forms
         {
             try
             {
-                // 从全局上下文获取TestMaster实例
-                var testMaster = SystemContext.Current.Masters.DictTestMaster[0];
+                var session = GetSessionOrWarn();
+                if (session == null)
+                {
+                    return;
+                }
+
+                var testMaster = SystemContext.Current.Master1;
+                if (testMaster == null)
+                {
+                    ExceptionHandler.ShowWarning("一号炉控制器尚未初始化，请先完成系统初始化。", "系统未就绪");
+                    return;
+                }
+
+                var testData = testMaster.GetTestData();
 
                 // 判断是否已新建试验（业务规则验证）
-                if (testMaster.GetTestData() == null)
+                if (testData == null)
                 {
                     ExceptionHandler.ShowWarning("试验控制器尚未接收试验样品信息，请先新建本次试验。", "无法记录试验数据");
+                    return;
+                }
+
+                if (!CanPostTestRecord(testMaster.Status, testData))
+                {
+                    ExceptionHandler.ShowWarning("本次试验尚未完成，请等待试验自动达到终止条件后再保存试验记录。", "无法记录试验数据");
                     return;
                 }
 
@@ -746,27 +784,40 @@ namespace ISO11820WinForms.Forms
                 {
                     if (testPhenoForm.ShowDialog(this) == DialogResult.OK)
                     {
-                        // 1. 设置试验后数据（现象编码、火焰时间、残余质量）
-                        testMaster.SetPostTestData(
-                            testPhenoForm.PhenoCode,
-                            testPhenoForm.FlameTime,
-                            testPhenoForm.FlameDuration,
-                            testPhenoForm.PostWeight);
-
                         AppendSystemMessage($"试验记录数据已设置。现象编码: [{testPhenoForm.PhenoCode}], 残余质量: [{testPhenoForm.PostWeight}g]");
 
-                        // 2. 执行试验后期处理（保存数据到数据库、生成报告文件）
+                        CommandResult result;
                         using (var progress = new ProgressIndicator(this, "正在保存试验数据并生成报告..."))
                         {
-                            await testMaster.PostTestProcess();
+                            result = await session.SubmitPostTestAsync(
+                                testPhenoForm.PhenoCode,
+                                testPhenoForm.FlameTime,
+                                testPhenoForm.FlameDuration,
+                                testPhenoForm.PostWeight);
+
+                            if (!result.Success)
+                            {
+                                Log.Warning("保存试验记录失败: {Message}", result.Message);
+                                ExceptionHandler.ShowWarning(result.Message, "无法记录试验数据");
+                                return;
+                            }
                         }
 
-                        // 3. 清空本次试验数据缓存
                         testMaster.ResetTestData();
+                        UpdateButtonStates(testMaster.Status);
 
-                        Log.Information("试验完成，数据已保存，报告已生成");
-                        AppendSystemMessage("试验已完成，数据已保存到数据库，报告已生成。");
-                        ExceptionHandler.ShowSuccess("试验数据已保存，报告已生成。");
+                        if (result.ReportGenerated)
+                        {
+                            Log.Information("试验完成，数据已保存，Excel报告已生成: {ExcelPath}", result.ExcelReportPath);
+                            AppendSystemMessage($"试验已完成，Excel报告已生成: {result.ExcelReportPath}");
+                            ExceptionHandler.ShowSuccess($"试验数据已保存，Excel报告已生成。\n\nExcel路径：{result.ExcelReportPath}");
+                        }
+                        else
+                        {
+                            Log.Warning("试验完成，数据已保存，但报告未生成: {Message}", result.Message);
+                            AppendSystemMessage(result.Message);
+                            ExceptionHandler.ShowWarning(result.Message, "报告生成提示");
+                        }
                     }
                 }
             }
@@ -775,6 +826,43 @@ namespace ISO11820WinForms.Forms
                 Log.Error(ex, "完成试验流程失败");
                 ExceptionHandler.HandleDatabaseException(ex, "保存试验记录");
             }
+        }
+
+        private SampleTestSessionService? GetSessionOrWarn()
+        {
+            var session = SystemContext.Current.Session;
+            if (session != null)
+            {
+                return session;
+            }
+
+            const string message = "会话服务尚未初始化，请先完成系统初始化。";
+            Log.Warning(message);
+            AppendSystemMessage(message);
+            ExceptionHandler.ShowWarning(message, "系统未就绪");
+            return null;
+        }
+
+        private static bool CanPostTestRecord(MasterStatus status, Testmaster? testData)
+        {
+            if (testData == null)
+            {
+                return false;
+            }
+
+            return status == MasterStatus.Complete || testData.Totaltesttime > 0;
+        }
+
+        private static bool CanCreateNewTest(MasterStatus status, Testmaster? testData)
+        {
+            if (testData == null)
+            {
+                return true;
+            }
+
+            bool isCompletedOrRecorded = status == MasterStatus.Complete || testData.Totaltesttime > 0;
+            bool isSaved = string.Equals(testData.Flag, "10000000", StringComparison.Ordinal);
+            return !isCompletedOrRecorded || isSaved;
         }
 
         /*
@@ -830,8 +918,8 @@ namespace ISO11820WinForms.Forms
                         if (success)
                         {
                             // 添加系统消息
-                            AppendSystemMessage($"设备参数已更新。设备编号: [{setParamForm.ApparatusId}], 设备名称: [{setParamForm.ApparatusName}]");
-                            ExceptionHandler.ShowSuccess("设备参数已成功保存。");
+                            AppendSystemMessage($"设备参数已保存。设备编号: [{setParamForm.ApparatusId}], 设备名称: [{setParamForm.ApparatusName}]。当前按单串口共口模式处理，PID/功率端口都会使用 [{setParamForm.PidPort}]，重启软件后生效。");
+                            ExceptionHandler.ShowSuccess("设备参数已成功保存。当前按单串口共口模式处理，重启软件后生效。");
                         }
                         else
                         {
@@ -903,8 +991,15 @@ namespace ISO11820WinForms.Forms
 
         private void MainForm_FormClosing(object sender, FormClosingEventArgs e)
         {
-            // 使用统一的确认对话框
-            if (!ExceptionHandler.Confirm("确定要退出系统吗？\n\n退出后所有未保存的数据将丢失。", "退出确认"))
+            var master = _testMaster1 ?? SystemContext.Current.Master1;
+            var confirmMessage = "确定要退出系统吗？\n\n退出后所有未保存的数据将丢失。";
+
+            if (master != null && master.Status == MasterStatus.Recording)
+            {
+                confirmMessage = "1号试验装置正在试验中，继续退出将导致数据丢失，是否继续？";
+            }
+
+            if (!ExceptionHandler.Confirm(confirmMessage, "退出确认"))
             {
                 e.Cancel = true;
             }
@@ -922,7 +1017,10 @@ namespace ISO11820WinForms.Forms
                 {
                     _testMaster1.DataBroadcast -= OnTestMasterDataBroadcast;
                     _testMaster1.StateChanged -= OnTestMasterStateChanged;
-                    _testMaster1.FlameDetected -= OnTestMasterFlameDetected;
+                    if (_testMaster1.IsFlameDetectionEnabled)
+                    {
+                        _testMaster1.FlameDetected -= OnTestMasterFlameDetected;
+                    }
                 }
                 
                 Log.Information("用户退出系统");
@@ -961,8 +1059,10 @@ namespace ISO11820WinForms.Forms
                 // Requirement 1.2: 订阅StateChanged事件以接收状态变更通知
                 _testMaster1.StateChanged += OnTestMasterStateChanged;
                 
-                // Requirement 1.3: 订阅FlameDetected事件以接收火焰检测通知
-                _testMaster1.FlameDetected += OnTestMasterFlameDetected;
+                if (_testMaster1.IsFlameDetectionEnabled)
+                {
+                    _testMaster1.FlameDetected += OnTestMasterFlameDetected;
+                }
             }
         }
 
@@ -1199,6 +1299,8 @@ namespace ISO11820WinForms.Forms
         {
             try
             {
+                var testData = TryGetCurrentTestData();
+
                 switch (status)
                 {
                     case MasterStatus.Idle:
@@ -1249,11 +1351,19 @@ namespace ISO11820WinForms.Forms
                         btnStopRecord.Enabled = false;
                         break;
                 }
+
+                btnRecordLogs.Enabled = CanPostTestRecord(status, testData);
+                btnNewTest.Enabled = btnNewTest.Enabled && CanCreateNewTest(status, testData);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "更新按钮状态失败");
             }
+        }
+
+        private static Testmaster? TryGetCurrentTestData()
+        {
+            return SystemContext.Current.Master1?.GetTestData();
         }
 
         /*
@@ -1398,6 +1508,7 @@ namespace ISO11820WinForms.Forms
                 {
                     _centerCalibrationTempLabel.Text = e.TempCalibration.ToString("F1");
                 }
+                _calibrationView?.SetCalibrationTemperature(e.TempCalibration);
                 
                 // 更新校准温度稳定状态视觉指示
                 // 根据 Requirements 4.3: 当温度在 750±5°C (745-755°C) 范围内时显示稳定状态
@@ -1721,40 +1832,18 @@ namespace ISO11820WinForms.Forms
         {
             try
             {
-                // 清空panelCalibration
                 panelCalibration.Controls.Clear();
-                panelCalibration.BackColor = Color.FromArgb(240, 240, 240);
-                panelCalibration.Padding = new Padding(10);
+                panelCalibration.BackColor = UiTheme.AppBackground;
+                panelCalibration.Padding = new Padding(0);
 
-                // 创建主 TableLayoutPanel（2行1列，上下两个区域）
-                var mainTableLayout = new TableLayoutPanel
+                _calibrationView = new CalibrationView
                 {
-                    Dock = DockStyle.Fill,
-                    ColumnCount = 1,
-                    RowCount = 2,
-                    Padding = new Padding(0),
-                    CellBorderStyle = TableLayoutPanelCellBorderStyle.None
+                    Dock = DockStyle.Fill
                 };
-                
-                // 设置行高（各占50%）
-                mainTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-                mainTableLayout.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
-                mainTableLayout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+                _calibrationView.HistoryRequested += (_, _) => ShowCalibrationHistoryDialog();
+                _calibrationView.SystemMessageGenerated += AppendSystemMessage;
 
-                // 创建炉壁温度校验区域（第一行）
-                var surfacePanel = CreateSurfaceCalibrationPanel();
-                mainTableLayout.Controls.Add(surfacePanel, 0, 0);
-
-                // 创建中心轴温度校验区域（第二行）
-                var centerPanel = CreateCenterCalibrationPanel();
-                mainTableLayout.Controls.Add(centerPanel, 0, 1);
-
-                // 将 TableLayoutPanel 添加到 panelCalibration
-                panelCalibration.Controls.Add(mainTableLayout);
-
-                // 初始化数据
-                InitializeSurfaceTempData();
-                InitializeCenterTempData();
+                panelCalibration.Controls.Add(_calibrationView);
             }
             catch (Exception ex)
             {
