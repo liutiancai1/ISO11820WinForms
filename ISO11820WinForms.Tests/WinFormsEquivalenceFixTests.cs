@@ -49,6 +49,37 @@ public class WinFormsEquivalenceFixTests : IDisposable
     }
 
     [Fact]
+    public void CheckStartCriteria_WhenDriftWindowIsFullButNotCalculated_DoesNotUseDefaultZeroDrift()
+    {
+        var master = new TestableTestMaster();
+        master.SetCurrentTemperatures(750, 750);
+        master.LoadTenMinuteTemperatureWindow(_ => 750, _ => 750);
+
+        Assert.False(master.CheckStartCriteria());
+    }
+
+    [Fact]
+    public void CalculateDrift10Min_ReportsDegreesPerTenMinutes()
+    {
+        var master = new TestableTestMaster();
+        master.LoadTenMinuteTemperatureWindow(
+            second => 750 + second / 599.0,
+            second => 750 + second / 599.0);
+
+        master.CalculateTenMinuteDrift();
+
+        Assert.Equal(1.0, master.CurrentCalculation.Temp1Drift10Min, 3);
+        Assert.Equal(1.0, master.CurrentCalculation.Temp2Drift10Min, 3);
+        Assert.Equal(1.0, master.CurrentCalculation.TempDriftMean, 3);
+    }
+
+    [Fact]
+    public void TemperatureDriftUnitText_UsesDegreesPerTenMinutes()
+    {
+        Assert.Equal("℃/10min", TestMaster.TemperatureDriftUnitText);
+    }
+
+    [Fact]
     public async Task CreateNewTestAsync_WhenTestIdAlreadyExists_DoesNotReplaceCurrentMasterCache()
     {
         Assert.True(DatabaseHelper.EnsureDatabaseCreated());
@@ -128,6 +159,51 @@ public class WinFormsEquivalenceFixTests : IDisposable
     }
 
     [Fact]
+    public void MainForm_DisablesStartRecordWhenCompletedTestHasNotBeenSaved()
+    {
+        var method = typeof(MainForm).GetMethod("CanStartRecord", BindingFlags.Static | BindingFlags.NonPublic);
+        var activeTest = CreateTest("P003", "T005");
+        var completedButUnsaved = CreateTest("P003", "T006");
+        completedButUnsaved.Totaltesttime = 60;
+        completedButUnsaved.Flag = "00000000";
+
+        Assert.NotNull(method);
+        Assert.True((bool)method!.Invoke(null, new object?[] { MasterStatus.Ready, activeTest })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { MasterStatus.Ready, completedButUnsaved })!);
+        Assert.False((bool)method.Invoke(null, new object?[] { MasterStatus.Complete, completedButUnsaved })!);
+    }
+
+    [Fact]
+    public void MainForm_StatusMessageForCompletedUnsavedTestPromptsUserToSaveRecord()
+    {
+        var method = typeof(MainForm).GetMethod("GetStatusMessage", BindingFlags.Static | BindingFlags.NonPublic);
+        var completedButUnsaved = CreateTest("P003", "T007");
+        completedButUnsaved.Totaltesttime = 60;
+        completedButUnsaved.Flag = "00000000";
+
+        Assert.NotNull(method);
+        var message = (string?)method!.Invoke(null, new object?[] { MasterStatus.Recording, MasterStatus.Complete, completedButUnsaved });
+
+        Assert.Equal("试验已完成，请点击“试验记录”保存并生成报告。", message);
+    }
+
+    [Fact]
+    public void MainForm_StatusMessageForCompletedUnsavedReadyTransitionDoesNotRepeatPrompt()
+    {
+        var method = typeof(MainForm).GetMethod("GetStatusMessage", BindingFlags.Static | BindingFlags.NonPublic);
+        var completedButUnsaved = CreateTest("P003", "T008");
+        completedButUnsaved.Totaltesttime = 60;
+        completedButUnsaved.Flag = "00000000";
+
+        Assert.NotNull(method);
+        var preparingMessage = (string?)method!.Invoke(null, new object?[] { MasterStatus.Complete, MasterStatus.Preparing, completedButUnsaved });
+        var readyMessage = (string?)method.Invoke(null, new object?[] { MasterStatus.Preparing, MasterStatus.Ready, completedButUnsaved });
+
+        Assert.Null(preparingMessage);
+        Assert.Null(readyMessage);
+    }
+
+    [Fact]
     public void MainForm_BlocksNewTestWhenCompletedTestHasNotBeenSaved()
     {
         var method = typeof(MainForm).GetMethod("CanCreateNewTest", BindingFlags.Static | BindingFlags.NonPublic);
@@ -151,6 +227,33 @@ public class WinFormsEquivalenceFixTests : IDisposable
         Assert.NotNull(method);
         Assert.True((bool)method!.Invoke(null, new object?[] { MasterStatus.Preparing, savedTest })!);
         Assert.True((bool)method.Invoke(null, new object?[] { MasterStatus.Idle, null })!);
+    }
+
+    [Fact]
+    public void MainForm_TryApplyMainPageTestMode_AppliesFixedDurationToCurrentTest()
+    {
+        var test = CreateTest("P005", "T001");
+
+        var result = InvokeTryApplyMainPageTestMode(test, "固定时长", "45", out var errorMessage);
+
+        Assert.True(result);
+        Assert.Equal(string.Empty, errorMessage);
+        Assert.True(test.UseFixedDuration);
+        Assert.Equal(2700, test.TargetDurationSeconds);
+    }
+
+    [Fact]
+    public void MainForm_TryApplyMainPageTestMode_AppliesStandardModeToCurrentTest()
+    {
+        var test = CreateTest("P005", "T002");
+        SetFixedDuration(test, 1800);
+
+        var result = InvokeTryApplyMainPageTestMode(test, "标准模式", "45", out var errorMessage);
+
+        Assert.True(result);
+        Assert.Equal(string.Empty, errorMessage);
+        Assert.False(test.UseFixedDuration);
+        Assert.Equal(3600, test.TargetDurationSeconds);
     }
 
     [Fact]
@@ -180,10 +283,11 @@ public class WinFormsEquivalenceFixTests : IDisposable
         master.Status = MasterStatus.Recording;
         master.Timer = 120;
 
-        master.InvokeRecordingTick();
+        var messages = master.InvokeRecordingTick();
 
         Assert.Equal(MasterStatus.Complete, master.Status);
         Assert.Equal(120, test.Totaltesttime);
+        Assert.Empty(messages);
     }
 
     public void Dispose()
@@ -235,6 +339,21 @@ public class WinFormsEquivalenceFixTests : IDisposable
         targetDurationSeconds!.SetValue(test, seconds);
     }
 
+    private static bool InvokeTryApplyMainPageTestMode(
+        Testmaster? test,
+        string modeText,
+        string durationMinutesText,
+        out string errorMessage)
+    {
+        var method = typeof(MainForm).GetMethod("TryApplyMainPageTestMode", BindingFlags.Static | BindingFlags.NonPublic);
+        Assert.NotNull(method);
+
+        object?[] args = { test, modeText, durationMinutesText, string.Empty };
+        var result = (bool)method!.Invoke(null, args)!;
+        errorMessage = (string)args[3]!;
+        return result;
+    }
+
     private static void SetConfiguration(IReadOnlyDictionary<string, string?>? values)
     {
         var field = typeof(ConfigurationHelper).GetField("_configuration", BindingFlags.Static | BindingFlags.NonPublic)
@@ -271,11 +390,13 @@ public class WinFormsEquivalenceFixTests : IDisposable
             _sensorDataCatch.Temp2 = temp2;
         }
 
-        public void InvokeRecordingTick()
+        public List<MasterMessage> InvokeRecordingTick()
         {
             var method = typeof(TestMaster1).GetMethod("DoRecording", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.NotNull(method);
-            method!.Invoke(this, new object?[] { new List<MasterMessage>() });
+            var messages = new List<MasterMessage>();
+            method!.Invoke(this, new object?[] { messages });
+            return messages;
         }
     }
 
@@ -288,10 +409,34 @@ public class WinFormsEquivalenceFixTests : IDisposable
 
         public Productmaster? CurrentProduct => _productMaster;
         public Testmaster? CurrentTest => _testmaster;
+        public CaculateDataCatch CurrentCalculation => _caculateDataCatch;
 
         public void AddSensorData(SensorDataCatch data)
         {
             _bufSensorData.Add(data);
+        }
+
+        public void SetCurrentTemperatures(double temp1, double temp2)
+        {
+            _sensorDataCatch.Temp1 = temp1;
+            _sensorDataCatch.Temp2 = temp2;
+        }
+
+        public void LoadTenMinuteTemperatureWindow(Func<int, double> temp1Factory, Func<int, double> temp2Factory)
+        {
+            y1Data10Min.Clear();
+            y2Data10Min.Clear();
+
+            for (var second = 0; second < 600; second++)
+            {
+                y1Data10Min.Enqueue(temp1Factory(second));
+                y2Data10Min.Enqueue(temp2Factory(second));
+            }
+        }
+
+        public void CalculateTenMinuteDrift()
+        {
+            CaculateDrift10Min();
         }
 
         public void ApplyDerivedResults()

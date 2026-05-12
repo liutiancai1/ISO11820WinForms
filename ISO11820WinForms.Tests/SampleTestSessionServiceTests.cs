@@ -51,7 +51,8 @@ public class SampleTestSessionServiceTests
         master.ReportResultToPublish = new ReportResult
         {
             Success = true,
-            ExcelFilePath = @"D:\Reports\TestReport_P001_T001.xlsx"
+            ExcelFilePath = @"D:\Reports\TestReport_P001_T001.xlsx",
+            TestPackagePath = @"D:\Reports\TestPackages\20260507\P001_T001_20260507_093000_123"
         };
         var service = new SampleTestSessionService(master);
 
@@ -60,6 +61,7 @@ public class SampleTestSessionServiceTests
         Assert.True(result.Success);
         Assert.True(result.ReportGenerated);
         Assert.Equal(@"D:\Reports\TestReport_P001_T001.xlsx", result.ExcelReportPath);
+        Assert.Equal(@"D:\Reports\TestPackages\20260507\P001_T001_20260507_093000_123", result.TestPackagePath);
     }
 
     [Fact]

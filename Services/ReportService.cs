@@ -78,14 +78,14 @@ namespace ISO11820WinForms.Services
                 {
                     if (excelPath != null)
                     {
-                        pdfPath = await _templateEngine.ExportToPdfAsync(excelPath);
+                        pdfPath = await _templateEngine.ExportToPdfAsync(excelPath, reportData);
                         _logger.Information("PDF 报告生成成功: {PdfPath}", pdfPath);
                     }
                     else
                     {
                         // 如果只生成 PDF，需要先生成临时 Excel
                         var tempExcelPath = await _templateEngine.GenerateExcelReportAsync(reportData);
-                        pdfPath = await _templateEngine.ExportToPdfAsync(tempExcelPath);
+                        pdfPath = await _templateEngine.ExportToPdfAsync(tempExcelPath, reportData);
                         // 删除临时 Excel 文件
                         if (File.Exists(tempExcelPath))
                         {
@@ -96,7 +96,17 @@ namespace ISO11820WinForms.Services
                 }
 
                 // 4. 保存报告路径到数据库
-                await SaveReportPathsAsync(productId, testId, excelPath, pdfPath);
+                string? packagePath = CreateTestPackage(productId, testId, excelPath, pdfPath, reportData.SensorData);
+                var finalExcelPath = ResolvePackageReportFile(packagePath, "*_report.xlsx") ?? excelPath;
+                var finalPdfPath = ResolvePackageReportFile(packagePath, "*_report.pdf") ?? pdfPath;
+
+                if (packagePath != null)
+                {
+                    DeleteIntermediateReportFile(excelPath, finalExcelPath);
+                    DeleteIntermediateReportFile(pdfPath, finalPdfPath);
+                }
+
+                await SaveReportPathsAsync(productId, testId, finalExcelPath, finalPdfPath, packagePath);
 
                 stopwatch.Stop();
                 _logger.Information("报告生成完成，耗时: {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
@@ -104,8 +114,9 @@ namespace ISO11820WinForms.Services
                 return new ReportResult
                 {
                     Success = true,
-                    ExcelFilePath = excelPath,
-                    PdfFilePath = pdfPath,
+                    ExcelFilePath = finalExcelPath,
+                    PdfFilePath = finalPdfPath,
+                    TestPackagePath = packagePath,
                     ElapsedMilliseconds = stopwatch.ElapsedMilliseconds
                 };
             }
@@ -278,6 +289,117 @@ namespace ISO11820WinForms.Services
             return await GenerateTestReportAsync(productId, testId);
         }
 
+        private string? CreateTestPackage(
+            string productId,
+            string testId,
+            string? excelPath,
+            string? pdfPath,
+            IReadOnlyList<SensorDataPoint> sensorData)
+        {
+            if (string.IsNullOrWhiteSpace(excelPath) && string.IsNullOrWhiteSpace(pdfPath))
+            {
+                return null;
+            }
+
+            string? curveImagePath = null;
+            try
+            {
+                var packageRoot = Path.Combine(_config.OutputDirectory, "TestPackages");
+                var sensorDataPath = TestDataPathHelper.ResolveExistingSensorDataFilePath(productId, testId);
+                curveImagePath = CreateTemperatureCurveImage(sensorData);
+                var packagePath = new TestPackageService(packageRoot)
+                    .CreatePackage(
+                        productId,
+                        testId,
+                        excelPath,
+                        pdfPath,
+                        sensorDataPath,
+                        temperatureCurveImagePath: curveImagePath);
+
+                _logger.Information("璇曢獙鍖呯敓鎴愬畬鎴? {PackagePath}", packagePath);
+                return packagePath;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "璇曢獙鍖呯敓鎴愬け璐? ProductId={ProductId}, TestId={TestId}", productId, testId);
+                return null;
+            }
+            finally
+            {
+                TryDeleteTemporaryFile(curveImagePath);
+            }
+        }
+
+        private string? ResolvePackageReportFile(string? packagePath, string searchPattern)
+        {
+            if (string.IsNullOrWhiteSpace(packagePath) || !Directory.Exists(packagePath))
+            {
+                return null;
+            }
+
+            return Directory.GetFiles(packagePath, searchPattern).FirstOrDefault();
+        }
+
+        private void DeleteIntermediateReportFile(string? filePath, string? finalPath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(finalPath)
+                && string.Equals(
+                    Path.GetFullPath(filePath),
+                    Path.GetFullPath(finalPath),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "删除中间报告文件失败: {FilePath}", filePath);
+            }
+        }
+
+        private string? CreateTemperatureCurveImage(IReadOnlyList<SensorDataPoint> sensorData)
+        {
+            if (sensorData.Count == 0)
+            {
+                return null;
+            }
+
+            var tempRoot = string.IsNullOrWhiteSpace(_config.TempDirectory)
+                ? Path.GetTempPath()
+                : _config.TempDirectory;
+            Directory.CreateDirectory(tempRoot);
+
+            var filePath = Path.Combine(tempRoot, $"temperature_curve_{Guid.NewGuid():N}.png");
+            TemperatureCurveExportService.ExportTemperatureCurveImage(sensorData, filePath);
+            return File.Exists(filePath) ? filePath : null;
+        }
+
+        private void TryDeleteTemporaryFile(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "鍒犻櫎涓存椂娓╁害鏇茬嚎鍥惧け璐? {FilePath}", filePath);
+            }
+        }
+
         /// <summary>
         /// 加载试验数据
         /// Requirement 8.2: 生成试验报告时反序列化CSV数据
@@ -362,7 +484,8 @@ namespace ISO11820WinForms.Services
             string productId,
             string testId,
             string? excelPath,
-            string? pdfPath)
+            string? pdfPath,
+            string? packagePath)
         {
             try
             {
@@ -398,6 +521,10 @@ namespace ISO11820WinForms.Services
                 if (pdfPath != null)
                 {
                     paths.PdfReportPath = pdfPath;
+                }
+                if (packagePath != null)
+                {
+                    paths.TestPackagePath = packagePath;
                 }
 
                 var content = JsonSerializer.Serialize(paths);

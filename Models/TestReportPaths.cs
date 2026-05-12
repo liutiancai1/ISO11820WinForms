@@ -15,6 +15,8 @@ namespace TestServer.Models
         /// </summary>
         public string? PdfReportPath { get; set; }
 
+        public string? TestPackagePath { get; set; }
+
         /// <summary>
         /// 火焰视频路径
         /// </summary>

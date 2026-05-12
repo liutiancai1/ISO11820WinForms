@@ -152,11 +152,15 @@ namespace ISO11820WinForms.Core
             // 调整10分钟缓存数据（用于漂移计算）
             y1Data10Min.Enqueue(_sensorDataCatch.Temp1);
             y2Data10Min.Enqueue(_sensorDataCatch.Temp2);
-            if (y1Data10Min.Count == 601)
+            if (y1Data10Min.Count > DriftWindowSampleCount)
             {
                 y1Data10Min.Dequeue();
                 y2Data10Min.Dequeue();
-                // 刷新计算数据最新值
+            }
+
+            if (y1Data10Min.Count == DriftWindowSampleCount && y2Data10Min.Count == DriftWindowSampleCount)
+            {
+                // 刷新计算数据最新值，单位：℃/10min
                 CaculateDrift10Min();
             }
 
@@ -361,7 +365,7 @@ namespace ISO11820WinForms.Core
 
                 if (Timer >= targetDurationSeconds)
                 {
-                    CompleteTest(targetDurationSeconds, messages, $"本次试验已完成（达到设定时长 {targetDurationSeconds / 60} 分钟）。");
+                    CompleteTest(targetDurationSeconds);
                 }
             }
             else
@@ -369,7 +373,7 @@ namespace ISO11820WinForms.Core
                 // Requirement 7.5: 计时到达60分钟，无条件终止本次试验
                 if (Timer == 3600)
                 {
-                    CompleteTest(3600, messages, "本次试验已完成（达到60分钟上限）。");
+                    CompleteTest(3600);
                 }
                 // 在试验标准要求的时间点判断是否满足试验终止条件
                 else if (Timer == 1800 || Timer == 2100 || Timer == 2400
@@ -377,7 +381,7 @@ namespace ISO11820WinForms.Core
                 {
                     if (CheckTerminateCriteria())
                     {
-                        CompleteTest(Timer, messages, "本次试验已完成（满足终止条件）。");
+                        CompleteTest(Timer);
                     }
                 }
             }
@@ -390,9 +394,7 @@ namespace ISO11820WinForms.Core
         /// 完成试验并更新状态
         /// </summary>
         /// <param name="totalTime">试验总时长</param>
-        /// <param name="messages">消息列表</param>
-        /// <param name="message">完成消息</param>
-        private void CompleteTest(int totalTime, List<MasterMessage> messages, string message)
+        private void CompleteTest(int totalTime)
         {
             if (_testmaster != null)
             {
@@ -402,12 +404,6 @@ namespace ISO11820WinForms.Core
             // 更新控制器状态
             Status = MasterStatus.Complete;
 
-            // 添加完成消息
-            messages.Add(new MasterMessage()
-            {
-                Time = DateTime.Now.ToString("HH:mm:ss"),
-                Message = message
-            });
         }
 
 

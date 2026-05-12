@@ -19,32 +19,45 @@ namespace ISO11820WinForms.UI
 
     internal static class UiTheme
     {
-        public static readonly Color AppBackground = Color.FromArgb(245, 243, 238);
-        public static readonly Color Surface = Color.FromArgb(255, 254, 250);
-        public static readonly Color SurfaceRaised = Color.FromArgb(251, 249, 244);
-        public static readonly Color SurfaceStrong = Color.FromArgb(229, 236, 234);
-        public static readonly Color SurfaceStrongAlt = Color.FromArgb(239, 243, 241);
-        public static readonly Color Ink = Color.FromArgb(34, 44, 51);
-        public static readonly Color InkMuted = Color.FromArgb(102, 113, 121);
-        public static readonly Color Border = Color.FromArgb(212, 217, 213);
-        public static readonly Color Accent = Color.FromArgb(17, 119, 112);
-        public static readonly Color AccentHover = Color.FromArgb(24, 140, 132);
-        public static readonly Color AccentSoft = Color.FromArgb(223, 239, 236);
-        public static readonly Color Warning = Color.FromArgb(214, 153, 52);
-        public static readonly Color WarningHover = Color.FromArgb(224, 164, 64);
-        public static readonly Color Danger = Color.FromArgb(187, 82, 64);
-        public static readonly Color DangerHover = Color.FromArgb(204, 98, 80);
-        public static readonly Color Neutral = Color.FromArgb(88, 100, 110);
-        public static readonly Color NeutralHover = Color.FromArgb(102, 114, 124);
-        public static readonly Color MetricGlow = Color.FromArgb(205, 145, 34);
-        public static readonly Color Success = Color.FromArgb(46, 145, 104);
-        public static readonly Color SuccessSoft = Color.FromArgb(220, 240, 231);
+        private const string UiFontFamily = "Microsoft YaHei";
+        private const string NumberFontFamily = "Consolas";
 
-        private static readonly Font BodyFont = new("Microsoft YaHei UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
-        private static readonly Font EmphasisFont = new("Microsoft YaHei UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
-        private static readonly Font CompactButtonFont = new("Microsoft YaHei UI", 11F, FontStyle.Bold, GraphicsUnit.Point);
-        private static readonly Font MenuFont = new("Microsoft YaHei UI", 11F, FontStyle.Bold, GraphicsUnit.Point);
-        private static readonly Font CompactMenuFont = new("Microsoft YaHei UI", 10F, FontStyle.Bold, GraphicsUnit.Point);
+        public static readonly Color AppBackground = Color.FromArgb(0xec, 0xee, 0xf1);
+        public static readonly Color Surface = Color.White;
+        public static readonly Color SurfaceRaised = Color.FromArgb(0xf7, 0xf9, 0xfc);
+        public static readonly Color SurfaceStrong = Color.FromArgb(0xe1, 0xe7, 0xed);
+        public static readonly Color SurfaceStrongAlt = Color.FromArgb(0xda, 0xe2, 0xe8);
+        public static readonly Color Ink = Color.FromArgb(0x33, 0x44, 0x55);
+        public static readonly Color TitleInk = Color.FromArgb(0x44, 0x55, 0x66);
+        public static readonly Color InkMuted = Color.FromArgb(0x66, 0x77, 0x88);
+        public static readonly Color Border = Color.FromArgb(0xc7, 0xd0, 0xda);
+        public static readonly Color GridHeader = Color.FromArgb(0x1f, 0x2a, 0x44);
+        public static readonly Color GridLine = Color.FromArgb(0xe2, 0xe6, 0xed);
+        public static readonly Color GridAlternate = Color.FromArgb(0xf7, 0xf9, 0xfc);
+        public static readonly Color GridSelection = Color.FromArgb(0xd6, 0xe4, 0xff);
+        public static readonly Color Accent = Color.FromArgb(0x3a, 0x6b, 0x54);
+        public static readonly Color AccentHover = Color.FromArgb(0x45, 0x7a, 0x61);
+        public static readonly Color AccentSoft = Color.FromArgb(0xe2, 0xef, 0xe9);
+        public static readonly Color Warning = Color.FromArgb(0x84, 0x63, 0x2f);
+        public static readonly Color WarningHover = Color.FromArgb(0x95, 0x72, 0x3a);
+        public static readonly Color Danger = Color.FromArgb(0xa0, 0x55, 0x41);
+        public static readonly Color DangerHover = Color.FromArgb(0xb1, 0x64, 0x50);
+        public static readonly Color Neutral = Color.FromArgb(0x6c, 0x78, 0x86);
+        public static readonly Color NeutralHover = Color.FromArgb(0x7b, 0x87, 0x95);
+        public static readonly Color MetricGlow = Color.FromArgb(0x9a, 0x73, 0x35);
+        public static readonly Color Success = Color.FromArgb(0x2f, 0x86, 0x61);
+        public static readonly Color SuccessSoft = Color.FromArgb(0xe2, 0xef, 0xe9);
+        public static readonly Color VideoBackground = Color.FromArgb(0x1a, 0x1a, 0x1a);
+        public static readonly Color VideoLabel = Color.FromArgb(0x7b, 0xff, 0x7b);
+        public static readonly Color VideoMuted = Color.FromArgb(0x88, 0x88, 0x88);
+        public static readonly Color VideoBorder = Color.FromArgb(0xac, 0xa8, 0x99);
+
+        private static readonly Font BodyFont = new(UiFontFamily, 10.5F, FontStyle.Regular, GraphicsUnit.Point);
+        private static readonly Font EmphasisFont = new(UiFontFamily, 10F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font CompactButtonFont = new(UiFontFamily, 11F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font MenuFont = new(UiFontFamily, 11F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font CompactMenuFont = new(UiFontFamily, 10F, FontStyle.Bold, GraphicsUnit.Point);
+        private static readonly Font TableHeaderFont = new(UiFontFamily, 10F, FontStyle.Bold, GraphicsUnit.Point);
 
         public static void ApplyFormTheme(Form form, bool dialog = false)
         {
@@ -82,9 +95,9 @@ namespace ISO11820WinForms.UI
             button.UseVisualStyleBackColor = false;
             button.AutoEllipsis = false;
             button.TextAlign = ContentAlignment.MiddleCenter;
-            button.Padding = compact ? new Padding(10, 6, 10, 6) : new Padding(16, 8, 16, 8);
+            button.Padding = compact ? new Padding(10, 2, 10, 2) : new Padding(16, 8, 16, 8);
 
-            var minimumHeight = compact ? 40 : 44;
+            var minimumHeight = compact ? 44 : 44;
             var minimumWidth = compact ? 118 : 96;
             var preferredTextWidth = TextRenderer.MeasureText(button.Text ?? string.Empty, button.Font).Width;
             var preferredWidth = Math.Max(
@@ -116,35 +129,48 @@ namespace ISO11820WinForms.UI
         public static void StyleDataGridView(DataGridView grid)
         {
             grid.EnableHeadersVisualStyles = false;
-            grid.BackgroundColor = SurfaceRaised;
+            grid.BackgroundColor = Surface;
             grid.BorderStyle = BorderStyle.None;
-            grid.GridColor = Border;
+            grid.GridColor = GridLine;
             grid.RowHeadersVisible = false;
             grid.ColumnHeadersBorderStyle = DataGridViewHeaderBorderStyle.Single;
             grid.CellBorderStyle = DataGridViewCellBorderStyle.SingleHorizontal;
-            grid.ColumnHeadersHeight = Math.Max(grid.ColumnHeadersHeight, 38);
-            grid.RowTemplate.Height = Math.Max(grid.RowTemplate.Height, 32);
-            grid.DefaultCellStyle.BackColor = SurfaceRaised;
+            grid.ColumnHeadersHeight = Math.Max(grid.ColumnHeadersHeight, 34);
+            grid.RowTemplate.Height = Math.Max(grid.RowTemplate.Height, 30);
+            grid.DefaultCellStyle.BackColor = Surface;
             grid.DefaultCellStyle.ForeColor = Ink;
-            grid.DefaultCellStyle.SelectionBackColor = AccentSoft;
+            grid.DefaultCellStyle.SelectionBackColor = GridSelection;
             grid.DefaultCellStyle.SelectionForeColor = Ink;
             grid.DefaultCellStyle.Font = BodyFont;
             grid.DefaultCellStyle.Padding = new Padding(6, 0, 6, 0);
-            grid.AlternatingRowsDefaultCellStyle.BackColor = Color.FromArgb(245, 243, 238);
-            grid.ColumnHeadersDefaultCellStyle.BackColor = SurfaceStrong;
-            grid.ColumnHeadersDefaultCellStyle.ForeColor = Ink;
-            grid.ColumnHeadersDefaultCellStyle.Font = EmphasisFont;
+            grid.AlternatingRowsDefaultCellStyle.BackColor = GridAlternate;
+            grid.AlternatingRowsDefaultCellStyle.ForeColor = Ink;
+            grid.AlternatingRowsDefaultCellStyle.SelectionBackColor = GridSelection;
+            grid.AlternatingRowsDefaultCellStyle.SelectionForeColor = Ink;
+            grid.ColumnHeadersDefaultCellStyle.BackColor = GridHeader;
+            grid.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            grid.ColumnHeadersDefaultCellStyle.Font = TableHeaderFont;
             grid.ColumnHeadersDefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
+            grid.ColumnHeadersDefaultCellStyle.SelectionBackColor = GridHeader;
+            grid.ColumnHeadersDefaultCellStyle.SelectionForeColor = Color.White;
             grid.DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleCenter;
             foreach (DataGridViewColumn column in grid.Columns)
             {
                 column.DefaultCellStyle.Font = BodyFont;
+                column.DefaultCellStyle.BackColor = Surface;
+                column.DefaultCellStyle.ForeColor = Ink;
+                column.DefaultCellStyle.SelectionBackColor = GridSelection;
+                column.DefaultCellStyle.SelectionForeColor = Ink;
+                column.HeaderCell.Style.BackColor = GridHeader;
+                column.HeaderCell.Style.ForeColor = Color.White;
+                column.HeaderCell.Style.SelectionBackColor = GridHeader;
+                column.HeaderCell.Style.SelectionForeColor = Color.White;
             }
         }
 
         public static void StyleMenuStrip(MenuStrip menuStrip, bool compact = false)
         {
-            menuStrip.BackColor = compact ? SurfaceStrongAlt : SurfaceRaised;
+            menuStrip.BackColor = compact ? SurfaceStrongAlt : AppBackground;
             menuStrip.ForeColor = Ink;
             menuStrip.RenderMode = ToolStripRenderMode.Professional;
             menuStrip.Renderer = new ToolStripProfessionalRenderer(new ThemeColorTable(compact));
@@ -165,42 +191,57 @@ namespace ISO11820WinForms.UI
         public static void StylePlot(PlotModel model, string title)
         {
             model.Title = title;
-            model.TitleColor = OxyColor.FromRgb(Ink.R, Ink.G, Ink.B);
+            model.DefaultFont = UiFontFamily;
+            model.DefaultFontSize = 10.5;
+            model.TitleColor = OxyColor.FromRgb(TitleInk.R, TitleInk.G, TitleInk.B);
             model.TextColor = OxyColor.FromRgb(InkMuted.R, InkMuted.G, InkMuted.B);
-            model.PlotAreaBorderColor = OxyColor.FromRgb(Border.R, Border.G, Border.B);
-            model.Background = OxyColor.FromRgb(SurfaceRaised.R, SurfaceRaised.G, SurfaceRaised.B);
+            model.PlotAreaBorderColor = OxyColors.Transparent;
+            model.PlotAreaBorderThickness = new OxyThickness(0);
+            model.Background = OxyColors.Transparent;
             model.PlotAreaBackground = OxyColor.FromRgb(Surface.R, Surface.G, Surface.B);
-            model.TitleFontSize = 15;
+            model.TitleFontSize = 12;
+            model.PlotMargins = new OxyThickness(48, 12, 16, 34);
+            model.Padding = new OxyThickness(2, 2, 2, 2);
 
             foreach (var axis in model.Axes.OfType<Axis>())
             {
-                axis.TitleColor = OxyColor.FromRgb(Ink.R, Ink.G, Ink.B);
+                axis.TitleColor = OxyColor.FromRgb(TitleInk.R, TitleInk.G, TitleInk.B);
                 axis.TextColor = OxyColor.FromRgb(InkMuted.R, InkMuted.G, InkMuted.B);
-                axis.TicklineColor = OxyColor.FromRgb(Border.R, Border.G, Border.B);
-                axis.AxislineColor = OxyColor.FromRgb(Border.R, Border.G, Border.B);
-                axis.ExtraGridlineColor = OxyColor.FromRgb(Border.R, Border.G, Border.B);
-                axis.MajorGridlineColor = OxyColor.FromRgb(224, 218, 209);
-                axis.MinorGridlineColor = OxyColor.FromRgb(236, 232, 225);
+                axis.TicklineColor = OxyColor.FromRgb(0x88, 0x88, 0x88);
+                axis.AxislineColor = OxyColor.FromRgb(0x99, 0x99, 0x99);
+                axis.ExtraGridlineColor = OxyColor.FromRgb(GridLine.R, GridLine.G, GridLine.B);
+                axis.MajorGridlineColor = OxyColor.FromRgb(GridLine.R, GridLine.G, GridLine.B);
+                axis.MinorGridlineColor = OxyColor.FromRgb(0xf0, 0xf2, 0xf5);
                 axis.MinorGridlineStyle = LineStyle.Dot;
-                axis.AxisTitleDistance = 12;
+                axis.AxisTitleDistance = 10;
+                axis.FontSize = 10;
+                axis.TitleFontSize = 10;
             }
 
             foreach (var series in model.Series.OfType<LineSeries>())
             {
-                series.StrokeThickness = Math.Max(series.StrokeThickness, 2.4);
+                series.StrokeThickness = Math.Min(Math.Max(series.StrokeThickness, 1.8), 2.2);
                 series.LineJoin = LineJoin.Round;
             }
         }
 
         public static void StylePlotHost(Control plotHost)
         {
-            plotHost.BackColor = SurfaceRaised;
+            plotHost.BackColor = Surface;
             plotHost.Padding = new Padding(12);
+        }
+
+        public static void StyleVideoSurface(Control videoSurface)
+        {
+            videoSurface.BackColor = VideoBackground;
+            videoSurface.ForeColor = VideoLabel;
+            videoSurface.Font = new Font(NumberFontFamily, 11F, FontStyle.Bold, GraphicsUnit.Point);
+            videoSurface.Padding = new Padding(8);
         }
 
         public static void StyleCard(Panel panel)
         {
-            panel.BackColor = SurfaceRaised;
+            panel.BackColor = Surface;
             panel.Padding = new Padding(14);
             panel.Margin = new Padding(0, 0, 0, 10);
         }
@@ -212,8 +253,8 @@ namespace ISO11820WinForms.UI
             valueLabel.BorderStyle = BorderStyle.None;
             valueLabel.ForeColor = accentColor;
             valueLabel.Font = emphasize
-                ? new Font("Consolas", 22F, FontStyle.Bold, GraphicsUnit.Point)
-                : new Font("Consolas", 18F, FontStyle.Bold, GraphicsUnit.Point);
+                ? new Font(NumberFontFamily, 22F, FontStyle.Bold, GraphicsUnit.Point)
+                : new Font(NumberFontFamily, 18F, FontStyle.Bold, GraphicsUnit.Point);
             valueLabel.TextAlign = ContentAlignment.MiddleLeft;
         }
 
@@ -223,7 +264,7 @@ namespace ISO11820WinForms.UI
             titleLabel.BackColor = Color.Transparent;
             titleLabel.BorderStyle = BorderStyle.None;
             titleLabel.ForeColor = InkMuted;
-            titleLabel.Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold, GraphicsUnit.Point);
+            titleLabel.Font = new Font(UiFontFamily, 9F, FontStyle.Bold, GraphicsUnit.Point);
             titleLabel.TextAlign = ContentAlignment.MiddleLeft;
         }
 
@@ -232,7 +273,7 @@ namespace ISO11820WinForms.UI
             return tone switch
             {
                 ButtonTone.Primary => Accent,
-                ButtonTone.Secondary => Color.FromArgb(53, 96, 147),
+                ButtonTone.Secondary => Neutral,
                 ButtonTone.Warning => Warning,
                 ButtonTone.Danger => Danger,
                 _ => Neutral
@@ -244,7 +285,7 @@ namespace ISO11820WinForms.UI
             return tone switch
             {
                 ButtonTone.Primary => AccentHover,
-                ButtonTone.Secondary => Color.FromArgb(67, 111, 162),
+                ButtonTone.Secondary => NeutralHover,
                 ButtonTone.Warning => WarningHover,
                 ButtonTone.Danger => DangerHover,
                 _ => NeutralHover
@@ -255,7 +296,8 @@ namespace ISO11820WinForms.UI
         {
             return tone switch
             {
-                ButtonTone.Warning => Ink,
+                ButtonTone.Secondary => Color.Black,
+                ButtonTone.Neutral => Color.Black,
                 _ => Color.White
             };
         }
@@ -271,8 +313,8 @@ namespace ISO11820WinForms.UI
                     StyleDataGridView(dataGridView);
                     return;
                 case GroupBox groupBox:
-                    groupBox.BackColor = SurfaceRaised;
-                    groupBox.ForeColor = Ink;
+                    groupBox.BackColor = Surface;
+                    groupBox.ForeColor = TitleInk;
                     groupBox.Font = EmphasisFont;
                     groupBox.Padding = new Padding(14, 18, 14, 14);
                     return;
@@ -294,22 +336,22 @@ namespace ISO11820WinForms.UI
                     return;
                 case TextBox textBox:
                     textBox.BorderStyle = BorderStyle.FixedSingle;
-                    textBox.BackColor = textBox.ReadOnly ? Color.FromArgb(240, 236, 229) : SurfaceRaised;
+                    textBox.BackColor = textBox.ReadOnly ? SurfaceRaised : Surface;
                     textBox.ForeColor = Ink;
                     textBox.Font = BodyFont;
                     return;
                 case ComboBox comboBox:
-                    comboBox.BackColor = SurfaceRaised;
+                    comboBox.BackColor = Surface;
                     comboBox.ForeColor = Ink;
                     comboBox.FlatStyle = FlatStyle.Flat;
                     comboBox.Font = BodyFont;
                     return;
                 case DateTimePicker dateTimePicker:
-                    dateTimePicker.CalendarMonthBackground = SurfaceRaised;
+                    dateTimePicker.CalendarMonthBackground = Surface;
                     dateTimePicker.Font = BodyFont;
                     return;
                 case NumericUpDown numericUpDown:
-                    numericUpDown.BackColor = SurfaceRaised;
+                    numericUpDown.BackColor = Surface;
                     numericUpDown.ForeColor = Ink;
                     numericUpDown.Font = BodyFont;
                     return;
@@ -361,12 +403,12 @@ namespace ISO11820WinForms.UI
                 _compact = compact;
             }
 
-            public override Color MenuStripGradientBegin => _compact ? SurfaceStrongAlt : SurfaceRaised;
-            public override Color MenuStripGradientEnd => _compact ? SurfaceStrongAlt : SurfaceRaised;
-            public override Color ToolStripDropDownBackground => SurfaceRaised;
-            public override Color ImageMarginGradientBegin => SurfaceRaised;
-            public override Color ImageMarginGradientMiddle => SurfaceRaised;
-            public override Color ImageMarginGradientEnd => SurfaceRaised;
+            public override Color MenuStripGradientBegin => _compact ? SurfaceStrongAlt : AppBackground;
+            public override Color MenuStripGradientEnd => _compact ? SurfaceStrongAlt : AppBackground;
+            public override Color ToolStripDropDownBackground => Surface;
+            public override Color ImageMarginGradientBegin => Surface;
+            public override Color ImageMarginGradientMiddle => Surface;
+            public override Color ImageMarginGradientEnd => Surface;
             public override Color MenuItemSelected => Accent;
             public override Color MenuItemSelectedGradientBegin => Accent;
             public override Color MenuItemSelectedGradientEnd => Accent;

@@ -73,6 +73,11 @@ namespace ISO11820WinForms.Core
      */
     public class TestMaster : ITestMaster
     {
+        protected const int DriftWindowSampleCount = 600;
+        protected const double DriftWindowDurationSeconds = DriftWindowSampleCount - 1;
+        protected const double MaxTemperatureDriftPerTenMinutes = 2.0;
+        public const string TemperatureDriftUnitText = "℃/10min";
+
         /* ====================== 事件定义 ================== */
         
         /// <summary>
@@ -157,6 +162,7 @@ namespace ISO11820WinForms.Core
         protected Queue<double> xData10Min;   //试验计时缓存队列
         protected Queue<double> y1Data10Min;  //炉内温度1缓存队列
         protected Queue<double> y2Data10Min;  //炉内温度2缓存队列
+        protected bool _hasValidDrift10Min;
 
         /* [Preparing]状态与[Ready]状态所需数据结构 */
         // 用于计算试验开始条件的数据缓存: 10Min内温度范围是否稳定(750℃±5)
@@ -184,12 +190,13 @@ namespace ISO11820WinForms.Core
             _iFlameDurTime = 0;
 
             //初始化用于漂移计算的时间序列
-            for (int i = 0; i < 600; i++)
+            for (int i = 0; i < DriftWindowSampleCount; i++)
             {
                 xData10Min.Enqueue(i);
             }
             y1Data10Min = new Queue<double>();
             y2Data10Min = new Queue<double>();
+            _hasValidDrift10Min = false;
             //初始化读秒器
             _iCntStable = 0;
             _iCntDeviation = 0;
@@ -322,17 +329,24 @@ namespace ISO11820WinForms.Core
         */
         protected void CaculateDrift10Min()
         {
+            if (y1Data10Min.Count < DriftWindowSampleCount || y2Data10Min.Count < DriftWindowSampleCount)
+            {
+                _hasValidDrift10Min = false;
+                return;
+            }
+
             double[] xArray = xData10Min.ToArray();   //时间数据序列
             double[] y1Array = y1Data10Min.ToArray(); //炉内温度1数据序列
             double[] y2Array = y2Data10Min.ToArray(); //炉内温度2数据序列
             //拟合曲线,取得斜率与截距
             (_, double slope1) = Fit.Line(xArray, y1Array); //炉内温度1拟合曲线参数
             (_, double slope2) = Fit.Line(xArray, y2Array); //炉内温度2拟合曲线参数
-            //计算温度漂移值
-            _caculateDataCatch.Temp1Drift10Min = Math.Abs(slope1 * 599);
-            _caculateDataCatch.Temp2Drift10Min = Math.Abs(slope2 * 599);
+            //计算温度漂移值，单位：℃/10min
+            _caculateDataCatch.Temp1Drift10Min = Math.Abs(slope1 * DriftWindowDurationSeconds);
+            _caculateDataCatch.Temp2Drift10Min = Math.Abs(slope2 * DriftWindowDurationSeconds);
             _caculateDataCatch.TempDriftMean =
                 (_caculateDataCatch.Temp1Drift10Min + _caculateDataCatch.Temp2Drift10Min) / 2;
+            _hasValidDrift10Min = true;
         }
 
         /*
@@ -477,7 +491,7 @@ namespace ISO11820WinForms.Core
             double max1, max2, average1, average2;
             /* 计算是否达到试验初始条件 */
             //10分钟后,漂移值缓存满,开始计算漂移值
-            if (y1Data10Min.Count >= 600)
+            if (y1Data10Min.Count >= DriftWindowSampleCount && _hasValidDrift10Min)
             {
                 //计算温度范围条件
                 temp1 = (int)(_sensorDataCatch.Temp1 * 10);
@@ -491,8 +505,8 @@ namespace ISO11820WinForms.Core
                     _iCntStable = 600;
                 }
                 //计算温度漂移条件
-                if ((int)(_caculateDataCatch.Temp1Drift10Min * 10) <= 20
-                    && (int)(_caculateDataCatch.Temp2Drift10Min * 10) <= 20)
+                if (_caculateDataCatch.Temp1Drift10Min <= MaxTemperatureDriftPerTenMinutes
+                    && _caculateDataCatch.Temp2Drift10Min <= MaxTemperatureDriftPerTenMinutes)
                 {
                     if (_iCntDrift > 0) _iCntDrift--;
                 }
@@ -526,8 +540,9 @@ namespace ISO11820WinForms.Core
         public virtual bool CheckTerminateCriteria()
         {
             //判断试验终止条件是否满足 
-            return ((int)(_caculateDataCatch.Temp1Drift10Min * 10) <= 20 &&
-                 (int)(_caculateDataCatch.Temp2Drift10Min * 10) <= 20) ? true : false;
+            return _hasValidDrift10Min
+                && _caculateDataCatch.Temp1Drift10Min <= MaxTemperatureDriftPerTenMinutes
+                && _caculateDataCatch.Temp2Drift10Min <= MaxTemperatureDriftPerTenMinutes;
         }
 
         /*
@@ -610,21 +625,6 @@ namespace ISO11820WinForms.Core
                 var productId = _testmaster.Productid;
                 var testId = _testmaster.Testid;
                 PublishPostTestReportResult(await GenerateTestReportAsync(productId, testId));
-
-                // 在后台线程生成报告（不阻塞主流程）
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await GenerateTestReportAsync(productId, testId);
-                    }
-                    catch (Exception ex)
-                    {
-                        // 记录错误但不影响试验数据保存
-                        Serilog.Log.Error(ex, "生成试验报告失败: ProductId={ProductId}, TestId={TestId}", 
-                            productId, testId);
-                    }
-                });
             }
             catch (Exception)
             {

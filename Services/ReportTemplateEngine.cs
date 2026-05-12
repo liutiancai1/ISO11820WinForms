@@ -30,10 +30,10 @@ namespace ISO11820WinForms.Services
             // 字体文件映射
             var fontFiles = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                { "Microsoft YaHei UI", "msyh.ttc" },
-                { "Microsoft YaHei UI#Bold", "msyhbd.ttc" },
-                { "Microsoft YaHei", "msyh.ttc" },
-                { "Microsoft YaHei#Bold", "msyhbd.ttc" },
+                { "Microsoft YaHei UI", "simhei.ttf" },
+                { "Microsoft YaHei UI#Bold", "simhei.ttf" },
+                { "Microsoft YaHei", "simhei.ttf" },
+                { "Microsoft YaHei#Bold", "simhei.ttf" },
                 { "SimSun", "simsun.ttc" },
                 { "SimHei", "simhei.ttf" },
                 { "Arial", "arial.ttf" },
@@ -147,11 +147,7 @@ namespace ISO11820WinForms.Services
         {
             _logger.Information("开始生成 Excel 报告");
 
-            // 验证模板文件
-            if (!File.Exists(_config.TemplateFilePath))
-            {
-                throw new FileNotFoundException($"报告模板文件不存在: {_config.TemplateFilePath}");
-            }
+            EnsureReportTemplateExists();
 
             // 确保输出目录存在
             if (!Directory.Exists(_config.OutputDirectory))
@@ -174,6 +170,67 @@ namespace ISO11820WinForms.Services
             return outputPath;
         }
 
+        private void EnsureReportTemplateExists()
+        {
+            if (File.Exists(_config.TemplateFilePath))
+            {
+                return;
+            }
+
+            var templateDirectory = Path.GetDirectoryName(_config.TemplateFilePath);
+            if (!string.IsNullOrWhiteSpace(templateDirectory))
+            {
+                Directory.CreateDirectory(templateDirectory);
+            }
+
+            using var package = new ExcelPackage();
+            var sheet = package.Workbook.Worksheets.Add("报告");
+
+            sheet.Cells["A1:E1"].Merge = true;
+            sheet.Cells["A1"].Value = "ISO11820 试验报告";
+
+            sheet.Cells["A2"].Value = "样品编号";
+            sheet.Cells["A3"].Value = "样品名称";
+            sheet.Cells["A4"].Value = "规格型号";
+            sheet.Cells["A5"].Value = "直径";
+            sheet.Cells["A6"].Value = "高度";
+
+            sheet.Cells["D2"].Value = "试验编号";
+            sheet.Cells["D3"].Value = "试验日期";
+            sheet.Cells["D4"].Value = "操作员";
+            sheet.Cells["D5"].Value = "依据标准";
+            sheet.Cells["D6"].Value = "报告编号";
+
+            sheet.Cells["A8"].Value = "环境温度";
+            sheet.Cells["A9"].Value = "环境湿度";
+            sheet.Cells["A10"].Value = "试验时长";
+            sheet.Cells["D8"].Value = "试验前质量";
+            sheet.Cells["D9"].Value = "试验后质量";
+            sheet.Cells["D10"].Value = "失重";
+            sheet.Cells["D11"].Value = "失重率";
+
+            sheet.Cells["A12"].Value = "设备编号";
+            sheet.Cells["A13"].Value = "设备名称";
+            sheet.Cells["A14"].Value = "校验起始日期";
+            sheet.Cells["A15"].Value = "校验截止日期";
+            sheet.Cells["D12"].Value = "恒功率值";
+            sheet.Cells["A16"].Value = "现象编码";
+
+            sheet.Cells["A17"].Value = "最大温度";
+            sheet.Cells["A18"].Value = "最终温度";
+            sheet.Cells["A19"].Value = "温升";
+            sheet.Cells["B16"].Value = "炉内温度1";
+            sheet.Cells["C16"].Value = "炉内温度2";
+            sheet.Cells["D16"].Value = "表面温度";
+            sheet.Cells["E16"].Value = "中心温度";
+
+            sheet.Cells["F19"].Value = "温度漂移(℃/10min)";
+            sheet.Cells[sheet.Dimension.Address].AutoFitColumns();
+
+            package.SaveAs(new FileInfo(_config.TemplateFilePath));
+            _logger.Warning("报告模板不存在，已创建基础模板: {TemplateFilePath}", _config.TemplateFilePath);
+        }
+
         /// <summary>
         /// 填充模板数据
         /// </summary>
@@ -194,13 +251,14 @@ namespace ISO11820WinForms.Services
                 FillApparatusInfo(worksheet, reportData);
 
                 // 填充温度数据
-                FillTemperatureData(worksheet, reportData);
+                FillTemperatureData(package, reportData);
 
                 // 填充试验现象
                 FillTestPhenomena(worksheet, reportData);
 
                 // 计算公式
                 CalculateFormulas(worksheet, reportData);
+                TemperatureCurveExportService.AddTemperatureCurveWorksheet(package, reportData.SensorData);
 
                 // 保存文件
                 package.Save();
@@ -480,7 +538,7 @@ namespace ISO11820WinForms.Services
         /// <summary>
         /// 填充温度数据
         /// </summary>
-        private void FillTemperatureData(ExcelWorksheet worksheet, TestReportData reportData)
+        private void FillTemperatureData(ExcelPackage package, TestReportData reportData)
         {
             try
             {
@@ -491,19 +549,7 @@ namespace ISO11820WinForms.Services
                     return;
                 }
 
-                // 从第18行开始填充温度数据（假设模板从这里开始）
-                int startRow = 18;
-                for (int i = 0; i < sensorData.Count; i++)
-                {
-                    var data = sensorData[i];
-                    int row = startRow + i;
-
-                    worksheet.Cells[row, 1].Value = data.TimeStamp;  // 时间戳
-                    worksheet.Cells[row, 2].Value = data.Tf1;        // 炉壁温度1
-                    worksheet.Cells[row, 3].Value = data.Tf2;        // 炉壁温度2
-                    worksheet.Cells[row, 4].Value = data.Ts;         // 样品温度
-                    worksheet.Cells[row, 5].Value = data.Tc;         // 中心温度
-                }
+                TemperatureCurveExportService.AddTemperatureDataWorksheet(package, sensorData);
 
                 _logger.Debug("温度数据填充完成，共 {Count} 条记录", sensorData.Count);
             }
@@ -846,11 +892,7 @@ namespace ISO11820WinForms.Services
         {
             _logger.Information("开始生成预览报告");
 
-            // 验证模板文件
-            if (!File.Exists(_config.TemplateFilePath))
-            {
-                throw new FileNotFoundException($"报告模板文件不存在: {_config.TemplateFilePath}");
-            }
+            EnsureReportTemplateExists();
 
             // 生成临时文件路径
             var tempPath = Path.Combine(Path.GetTempPath(), $"Preview_{reportData.TestInfo.Testid}_{DateTime.Now:yyyyMMddHHmmss}.xlsx");
@@ -969,6 +1011,143 @@ namespace ISO11820WinForms.Services
 
             _logger.Information("PDF 导出完成: {PdfPath}", pdfPath);
             return pdfPath;
+        }
+
+        public async Task<string> ExportToPdfAsync(string excelFilePath, TestReportData reportData)
+        {
+            _logger.Information("开始根据报告数据生成 PDF: {ExcelFilePath}", excelFilePath);
+
+            if (!File.Exists(excelFilePath))
+            {
+                throw new FileNotFoundException($"Excel 文件不存在: {excelFilePath}");
+            }
+
+            if (reportData == null)
+            {
+                throw new ArgumentNullException(nameof(reportData));
+            }
+
+            var pdfPath = Path.ChangeExtension(excelFilePath, ".pdf");
+            var curveImagePath = CreateTemporaryTemperatureCurveImage(reportData.SensorData);
+
+            await Task.Run(() =>
+            {
+                using var document = new PdfDocument();
+                document.Info.Title = "ISO11820 试验报告";
+                document.Info.Author = "ISO11820 系统";
+                document.Info.Subject = "试验报告";
+
+                var page = document.AddPage();
+                page.Size = PdfSharp.PageSize.A4;
+                page.Orientation = PdfSharp.PageOrientation.Portrait;
+
+                using var gfx = XGraphics.FromPdfPage(page);
+                var titleFont = new XFont("Microsoft YaHei UI", 16, XFontStyleEx.Bold);
+                var sectionFont = new XFont("Microsoft YaHei UI", 11, XFontStyleEx.Bold);
+                var textFont = new XFont("Microsoft YaHei UI", 9, XFontStyleEx.Regular);
+
+                double y = 36;
+                gfx.DrawString("ISO11820 试验报告", titleFont, XBrushes.Black,
+                    new XRect(0, y, page.Width.Point, 28), XStringFormats.TopCenter);
+                y += 46;
+
+                y = DrawSection(gfx, "样品与试验信息", sectionFont, textFont, 48, y,
+                    ("样品编号", reportData.ProductInfo.Productid),
+                    ("样品名称", reportData.ProductInfo.Productname),
+                    ("样品标识", reportData.TestInfo.Testid),
+                    ("试验日期", reportData.TestInfo.Testdate.ToString("yyyy-MM-dd")),
+                    ("操作员", reportData.TestInfo.Operator),
+                    ("依据标准", reportData.TestInfo.According));
+
+                y = DrawSection(gfx, "关键结果", sectionFont, textFont, 48, y + 10,
+                    ("试验时长", $"{reportData.TestInfo.Totaltesttime}s"),
+                    ("最大炉温1", $"{reportData.TestInfo.Maxtf1:F1}℃"),
+                    ("最大炉温2", $"{reportData.TestInfo.Maxtf2:F1}℃"),
+                    ("最大表面温度", $"{reportData.TestInfo.Maxts:F1}℃"),
+                    ("最大中心温度", $"{reportData.TestInfo.Maxtc:F1}℃"),
+                    ("最终温升", $"{reportData.TestInfo.Deltatf:F1}℃"),
+                    ("失重率", $"{reportData.TestInfo.LostweightPer:F2}%"),
+                    ("现象编码", reportData.TestInfo.Phenocode));
+
+                y += 14;
+                gfx.DrawString("温度曲线", sectionFont, XBrushes.Black, new XPoint(48, y));
+                y += 12;
+
+                if (!string.IsNullOrWhiteSpace(curveImagePath) && File.Exists(curveImagePath))
+                {
+                    using var image = XImage.FromFile(curveImagePath);
+                    gfx.DrawImage(image, 48, y, 500, 250);
+                }
+                else
+                {
+                    gfx.DrawString("无温度曲线数据", textFont, XBrushes.Gray, new XPoint(48, y + 24));
+                }
+
+                document.Save(pdfPath);
+            });
+
+            TryDeleteTemporaryFile(curveImagePath);
+            _logger.Information("PDF 导出完成: {PdfPath}", pdfPath);
+            return pdfPath;
+        }
+
+        private static double DrawSection(
+            XGraphics gfx,
+            string title,
+            XFont sectionFont,
+            XFont textFont,
+            double x,
+            double y,
+            params (string Label, string Value)[] fields)
+        {
+            gfx.DrawString(title, sectionFont, XBrushes.Black, new XPoint(x, y));
+            y += 22;
+
+            for (var index = 0; index < fields.Length; index++)
+            {
+                var column = index % 2;
+                var row = index / 2;
+                var left = x + column * 250;
+                var top = y + row * 20;
+                var field = fields[index];
+                gfx.DrawString($"{field.Label}：{field.Value}", textFont, XBrushes.Black, new XPoint(left, top));
+            }
+
+            return y + Math.Ceiling(fields.Length / 2.0) * 20;
+        }
+
+        private string? CreateTemporaryTemperatureCurveImage(IReadOnlyList<SensorDataPoint> sensorData)
+        {
+            if (sensorData.Count == 0)
+            {
+                return null;
+            }
+
+            var tempRoot = string.IsNullOrWhiteSpace(_config.TempDirectory)
+                ? Path.GetTempPath()
+                : _config.TempDirectory;
+            Directory.CreateDirectory(tempRoot);
+
+            var filePath = Path.Combine(tempRoot, $"pdf_temperature_curve_{Guid.NewGuid():N}.png");
+            TemperatureCurveExportService.ExportTemperatureCurveImage(sensorData, filePath, 1000, 500);
+            return File.Exists(filePath) ? filePath : null;
+        }
+
+        private void TryDeleteTemporaryFile(string? filePath)
+        {
+            if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
+            {
+                return;
+            }
+
+            try
+            {
+                File.Delete(filePath);
+            }
+            catch (Exception ex)
+            {
+                _logger.Warning(ex, "删除临时 PDF 温度曲线图失败: {FilePath}", filePath);
+            }
         }
     }
 }

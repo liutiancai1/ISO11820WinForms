@@ -22,6 +22,8 @@ namespace TestServer.Models
         /// </summary>
         public string? PdfFilePath { get; set; }
 
+        public string? TestPackagePath { get; set; }
+
         /// <summary>
         /// 错误消息
         /// </summary>

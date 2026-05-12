@@ -34,7 +34,7 @@ namespace ISO11820WinForms.Forms.Controls
             DoubleBuffered = true;
             Dock = DockStyle.Fill;
             BackColor = UiTheme.AppBackground;
-            Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Regular, GraphicsUnit.Point);
+            Font = new Font("Microsoft YaHei", 10F, FontStyle.Regular, GraphicsUnit.Point);
 
             InitializeData();
             BuildLayout();
@@ -97,7 +97,7 @@ namespace ISO11820WinForms.Forms.Controls
             var panel = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = UiTheme.SurfaceRaised,
+                BackColor = UiTheme.Surface,
                 Padding = new Padding(14, 10, 14, 10),
                 Margin = new Padding(0, 0, 0, 10)
             };
@@ -164,7 +164,7 @@ namespace ISO11820WinForms.Forms.Controls
                     Text = suffix,
                     AutoSize = true,
                     ForeColor = UiTheme.InkMuted,
-                    Font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold, GraphicsUnit.Point),
+                    Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold, GraphicsUnit.Point),
                     Margin = new Padding(4, 13, 0, 0)
                 };
                 valuePanel.Controls.Add(suffixLabel);
@@ -311,6 +311,7 @@ namespace ISO11820WinForms.Forms.Controls
                 Dock = DockStyle.Left,
                 Width = 80,
                 ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
@@ -336,7 +337,7 @@ namespace ISO11820WinForms.Forms.Controls
                 ColumnCount = 4,
                 RowCount = 4,
                 CellBorderStyle = TableLayoutPanelCellBorderStyle.Single,
-                BackColor = UiTheme.Border,
+                BackColor = UiTheme.GridLine,
                 Margin = new Padding(8, 0, 8, 0)
             };
 
@@ -534,7 +535,7 @@ namespace ISO11820WinForms.Forms.Controls
             var panel = new Panel
             {
                 Dock = DockStyle.Fill,
-                BackColor = UiTheme.SurfaceRaised,
+                BackColor = UiTheme.Surface,
                 Padding = new Padding(12),
                 Margin = new Padding(0, 0, 0, 10)
             };
@@ -553,8 +554,8 @@ namespace ISO11820WinForms.Forms.Controls
             {
                 Text = title,
                 Dock = DockStyle.Fill,
-                ForeColor = UiTheme.Ink,
-                Font = new Font("Microsoft YaHei UI", 11F, FontStyle.Bold, GraphicsUnit.Point),
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.MiddleLeft
             };
             layout.Controls.Add(titleLabel, 0, 0);
@@ -612,7 +613,7 @@ namespace ISO11820WinForms.Forms.Controls
             {
                 Dock = DockStyle.Fill,
                 Model = _centerChartModel,
-                BackColor = UiTheme.SurfaceRaised
+                BackColor = UiTheme.Surface
             };
 
             parent.Controls.Add(plotView);
@@ -776,9 +777,9 @@ namespace ISO11820WinForms.Forms.Controls
             {
                 Text = text,
                 Dock = DockStyle.Fill,
-                BackColor = UiTheme.SurfaceStrong,
-                ForeColor = UiTheme.Ink,
-                Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = UiTheme.GridHeader,
+                ForeColor = Color.White,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Margin = new Padding(0)
             };
@@ -791,8 +792,8 @@ namespace ISO11820WinForms.Forms.Controls
             {
                 Text = "0.0",
                 Dock = DockStyle.Fill,
-                BackColor = Color.Black,
-                ForeColor = Color.Yellow,
+                BackColor = UiTheme.Surface,
+                ForeColor = UiTheme.MetricGlow,
                 Font = new Font("Consolas", 16F, FontStyle.Bold, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.MiddleCenter,
                 Margin = new Padding(0)
@@ -828,7 +829,7 @@ namespace ISO11820WinForms.Forms.Controls
                 Text = text,
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.Ink,
-                Font = new Font("Microsoft YaHei UI", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.MiddleRight,
                 Margin = new Padding(2)
             };
@@ -857,7 +858,7 @@ namespace ISO11820WinForms.Forms.Controls
                 Text = text,
                 Dock = DockStyle.Fill,
                 ForeColor = UiTheme.InkMuted,
-                Font = new Font("Microsoft YaHei UI", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
                 TextAlign = ContentAlignment.BottomLeft
             };
         }

@@ -72,6 +72,19 @@ namespace ISO11820WinForms.Services
         public string? LastConnectionError { get; private set; }
         public bool IsSimulationMode => _isSimulationMode;
 
+        public bool ProbeNow()
+        {
+            if (_isSimulationMode)
+            {
+                _isSensorConnected = true;
+                LastConnectionError = null;
+                return true;
+            }
+
+            ProbeHardwareConnection();
+            return _isSensorConnected;
+        }
+
         public void Start()
         {
             if (_isRunning)

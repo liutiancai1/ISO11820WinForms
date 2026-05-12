@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Drawing;
 using System.Windows.Forms;
 using ISO11820WinForms.Global;
 using Xunit;
@@ -15,6 +16,33 @@ public class UiThemeReadabilityTests
     private static readonly Type ButtonToneType =
         AppAssembly.GetType("ISO11820WinForms.UI.ButtonTone")
         ?? throw new InvalidOperationException("Unable to find ButtonTone type.");
+
+    [Fact]
+    public void IndustrialPalette_UsesRequestedLightMonitoringColors()
+    {
+        Assert.Equal(Color.FromArgb(0xec, 0xee, 0xf1), GetThemeColor("AppBackground"));
+        Assert.Equal(Color.FromArgb(0x33, 0x44, 0x55), GetThemeColor("Ink"));
+        Assert.Equal(Color.FromArgb(0x66, 0x77, 0x88), GetThemeColor("InkMuted"));
+        Assert.Equal(Color.FromArgb(0x3a, 0x6b, 0x54), GetThemeColor("Accent"));
+        Assert.Equal(Color.FromArgb(0xa0, 0x55, 0x41), GetThemeColor("Danger"));
+        Assert.Equal(Color.FromArgb(0x6c, 0x78, 0x86), GetThemeColor("Neutral"));
+    }
+
+    [Fact]
+    public void StyleDataGridView_UsesIndustrialTablePalette()
+    {
+        using var grid = new DataGridView();
+
+        InvokeStyleDataGridView(grid);
+
+        Assert.Equal(Color.White, grid.BackgroundColor);
+        Assert.Equal(Color.FromArgb(0xe2, 0xe6, 0xed), grid.GridColor);
+        Assert.Equal(Color.White, grid.DefaultCellStyle.BackColor);
+        Assert.Equal(Color.FromArgb(0xf7, 0xf9, 0xfc), grid.AlternatingRowsDefaultCellStyle.BackColor);
+        Assert.Equal(Color.FromArgb(0xd6, 0xe4, 0xff), grid.DefaultCellStyle.SelectionBackColor);
+        Assert.Equal(Color.FromArgb(0x1f, 0x2a, 0x44), grid.ColumnHeadersDefaultCellStyle.BackColor);
+        Assert.Equal(Color.White, grid.ColumnHeadersDefaultCellStyle.ForeColor);
+    }
 
     [Fact]
     public void StyleButton_WhenCompact_UsesReadableBoldFont()
@@ -95,6 +123,22 @@ public class UiThemeReadabilityTests
             ?? throw new InvalidOperationException("Unable to find StyleMenuStrip method.");
 
         method.Invoke(null, new object[] { menuStrip, compact });
+    }
+
+    private static void InvokeStyleDataGridView(DataGridView grid)
+    {
+        var method = UiThemeType.GetMethod("StyleDataGridView", BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException("Unable to find StyleDataGridView method.");
+
+        method.Invoke(null, new object[] { grid });
+    }
+
+    private static Color GetThemeColor(string fieldName)
+    {
+        var field = UiThemeType.GetField(fieldName, BindingFlags.Public | BindingFlags.Static)
+            ?? throw new InvalidOperationException($"Unable to find UiTheme.{fieldName}.");
+
+        return (Color)field.GetValue(null)!;
     }
 
     private static double CalculateContrastRatio(Color background, Color foreground)

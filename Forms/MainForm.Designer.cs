@@ -448,7 +448,7 @@
             lblTempRise.Name = "lblTempRise";
             lblTempRise.Size = new Size(160, 36);
             lblTempRise.TabIndex = 10;
-            lblTempRise.Text = "温度涨移 (℃)";
+            lblTempRise.Text = "温度漂移 (℃/10min)";
             lblTempRise.TextAlign = ContentAlignment.MiddleCenter;
             // 
             // dataCenterTemp

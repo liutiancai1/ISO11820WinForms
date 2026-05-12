@@ -12,11 +12,14 @@ namespace ISO11820WinForms.Models
 
         public string? PdfReportPath { get; init; }
 
+        public string? TestPackagePath { get; init; }
+
         public static CommandResult Ok(
             string message,
             bool reportGenerated = false,
             string? excelReportPath = null,
-            string? pdfReportPath = null)
+            string? pdfReportPath = null,
+            string? testPackagePath = null)
         {
             return new CommandResult
             {
@@ -24,7 +27,8 @@ namespace ISO11820WinForms.Models
                 Message = message,
                 ReportGenerated = reportGenerated,
                 ExcelReportPath = excelReportPath,
-                PdfReportPath = pdfReportPath
+                PdfReportPath = pdfReportPath,
+                TestPackagePath = testPackagePath
             };
         }
 

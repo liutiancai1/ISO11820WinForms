@@ -79,6 +79,50 @@ public class PostTestProcessStorageTests : IDisposable
         Assert.Equal("10000000", savedTest!.Flag);
     }
 
+    [Fact]
+    public async Task PostTestProcess_GeneratesOnePackageAndLeavesReportRootClean()
+    {
+        Assert.True(DatabaseHelper.EnsureDatabaseCreated());
+        _ = ConfigurationService.Instance;
+
+        var productId = $"P{Guid.NewGuid():N}";
+        var testId = $"T{Guid.NewGuid():N}";
+        var product = CreateProduct(productId);
+        var test = CreateTest(productId, testId);
+        test.Ambtemp = 25;
+        test.Preweight = 100;
+        test.Postweight = 90;
+        test.Totaltesttime = 60;
+
+        using (var context = new ISO11820DbContext())
+        {
+            context.Productmasters.Add(product);
+            context.Testmasters.Add(test);
+            await context.SaveChangesAsync();
+        }
+
+        var master = new TestablePostTestMaster();
+        master.SetProductData(product);
+        master.SetTestData(test);
+        master.AddSample(new SensorDataCatch { Timer = 0, Temp1 = 750, Temp2 = 751, TempSuf = 120, TempCen = 110 });
+        master.AddSample(new SensorDataCatch { Timer = 60, Temp1 = 752, Temp2 = 750, TempSuf = 140, TempCen = 125 });
+
+        await master.PostTestProcess();
+        await WaitForDuplicatePackageIfAny(productId, testId);
+
+        var reportsRoot = Path.Combine(_tempDirectory, "Reports");
+        var dayFolder = Path.Combine(reportsRoot, "TestPackages", DateTime.Now.ToString("yyyyMMdd"));
+        var packageDirectories = Directory.Exists(dayFolder)
+            ? Directory.GetDirectories(dayFolder, $"{productId}_{testId}_*")
+            : Array.Empty<string>();
+        var rootReportFiles = Directory.Exists(reportsRoot)
+            ? Directory.GetFiles(reportsRoot, "TestReport_*.*", SearchOption.TopDirectoryOnly)
+            : Array.Empty<string>();
+
+        Assert.Single(packageDirectories);
+        Assert.Empty(rootReportFiles);
+    }
+
     public void Dispose()
     {
         SetConfiguration(_originalConfiguration);
@@ -146,6 +190,23 @@ public class PostTestProcessStorageTests : IDisposable
         }
 
         SetConfiguration(configuration);
+    }
+
+    private static async Task WaitForDuplicatePackageIfAny(string productId, string testId)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < deadline)
+        {
+            var reportDirectory = ConfigurationHelper.GetReportConfiguration().OutputDirectory;
+            var dayFolder = Path.Combine(reportDirectory, "TestPackages", DateTime.Now.ToString("yyyyMMdd"));
+            if (Directory.Exists(dayFolder)
+                && Directory.GetDirectories(dayFolder, $"{productId}_{testId}_*").Length > 1)
+            {
+                return;
+            }
+
+            await Task.Delay(100);
+        }
     }
 
     private sealed class TestablePostTestMaster : TestMaster

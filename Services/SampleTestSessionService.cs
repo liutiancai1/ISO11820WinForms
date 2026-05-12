@@ -75,7 +75,8 @@ namespace ISO11820WinForms.Services
                     "试验数据已保存，Excel报告已生成。",
                     reportGenerated: true,
                     excelReportPath: reportResult.ExcelFilePath,
-                    pdfReportPath: reportResult.PdfFilePath);
+                    pdfReportPath: reportResult.PdfFilePath,
+                    testPackagePath: reportResult.TestPackagePath);
             }
 
             return CommandResult.Ok($"试验数据已保存，但Excel报告生成失败：{reportResult.ErrorMessage}");

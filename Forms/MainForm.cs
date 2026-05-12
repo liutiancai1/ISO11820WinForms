@@ -27,6 +27,9 @@ namespace ISO11820WinForms.Forms
         private Operator _currentUser;
         private ToolStripMenuItem? _selectedMenuItem;
         private bool _showSystemMessages = true;
+        private const string StandardTestModeText = "标准模式";
+        private const string FixedDurationTestModeText = "固定时长";
+        private const int DefaultTargetDurationSeconds = 3600;
 
         // 图表相关字段
         private PlotView? _chartView;
@@ -53,6 +56,41 @@ namespace ISO11820WinForms.Forms
 
         // 导出服务实例
         private ExportService _exportService = new ExportService();
+
+        // 样品试验主页布局和状态区
+        private Panel? _connectionStatusPanel;
+        private Panel? _operationStatusPanel;
+        private Label? _lblSharedPortLed;
+        private Label? _lblSharedPortTitle;
+        private Label? _lblSharedPortSummary;
+        private Label? _lblSharedPortDetail;
+        private Label? _lblPidConnectionState;
+        private Label? _lblPidConnectionDetail;
+        private Label? _lblAdamConnectionState;
+        private Label? _lblAdamConnectionDetail;
+        private Label? _lblLastHandshake;
+        private Label? _lblMessageRowCount;
+        private Label? _lblMessageRefresh;
+        private Label? _lblMessagePortState;
+        private Label? _lblHardwareModeSummary;
+        private Label? _lblMainStatusPill;
+        private Label? _lblMainStatusTarget;
+        private Label? _lblStateProductId;
+        private Label? _lblStateTestId;
+        private Label? _lblRuntimeHandshake;
+        private Label? _lblRuntimeSampleRate;
+        private Label? _lblRuntimeRecordState;
+        private Label? _lblRuntimeAlarmState;
+        private Label?[]? _recentStatusTimeLabels;
+        private Label?[]? _recentStatusMessageLabels;
+        private ComboBox? _comboMainTestMode;
+        private TextBox? _txtMainDurationMinutes;
+        private Label? _lblMainDurationUnit;
+        private Label? _lblMainTestModeHint;
+        private bool _isSyncingMainTestModeControls;
+        private bool _sampleStaticLayoutHooked;
+        private bool _metricDisplayResizeHooked;
+        private System.Windows.Forms.Timer? _connectionStatusTimer;
 
         // 系统校验界面控件字段
         private Label? _lblTempA1, _lblTempA2, _lblTempA3;
@@ -138,6 +176,9 @@ namespace ISO11820WinForms.Forms
             UiTheme.ApplyToControlTree(this);
 
             BackColor = UiTheme.AppBackground;
+            menuStrip1.Height = 58;
+            menuStrip1.Padding = new Padding(18, 9, 18, 9);
+            panel1.Height = 50;
             panel1.BackColor = UiTheme.SurfaceStrongAlt;
             panelSample.BackColor = UiTheme.AppBackground;
             panelCalibration.BackColor = UiTheme.AppBackground;
@@ -150,30 +191,1277 @@ namespace ISO11820WinForms.Forms
 
             UiTheme.StyleMenuStrip(menuStrip1);
             UiTheme.StyleMenuStrip(menuStrip3, compact: true);
-            lblSystemName.ForeColor = UiTheme.Ink;
+            lblSystemName.Enabled = true;
+            lblSystemName.ForeColor = UiTheme.TitleInk;
+            lblSystemName.Font = new Font("Microsoft YaHei", 12F, FontStyle.Bold, GraphicsUnit.Point);
+            lblSystemName.Padding = new Padding(18, 8, 18, 8);
 
-            panelOperations.BackColor = UiTheme.SurfaceStrongAlt;
-            panelOperations.Padding = new Padding(12, 10, 12, 10);
-            panelOperations.Height = 64;
+            panelOperations.BackColor = UiTheme.Surface;
+            panelOperations.Padding = new Padding(12, 8, 12, 8);
+            panelOperations.Height = 76;
 
             panelMessageBottom.BackColor = UiTheme.SurfaceStrongAlt;
             panelMessageBottom.Padding = new Padding(10, 8, 10, 8);
             panelMessageBottom.Height = 52;
 
-            messagePanel.BackColor = UiTheme.SurfaceRaised;
+            messagePanel.BackColor = UiTheme.Surface;
             messagePanel.BorderStyle = BorderStyle.None;
-            chartPanel.BackColor = UiTheme.SurfaceRaised;
+            chartPanel.BackColor = UiTheme.Surface;
             chartPanel.BorderStyle = BorderStyle.None;
-            panelDataDisplay.BackColor = UiTheme.SurfaceRaised;
+            panelDataDisplay.BackColor = UiTheme.Surface;
             panelDataDisplay.BorderStyle = BorderStyle.None;
 
-            BuildMetricDisplay();
             StylePrimaryButtons();
             LayoutOperationButtons();
+            ConfigureSampleDashboardLayout();
+            BuildMetricDisplay();
             StyleDataTables();
             ApplyChartTheme();
             ApplyMessageToggleButtonState();
+            StartConnectionStatusTimer();
+            UpdateConnectionStatus();
             SetSelectedMenuItem(_selectedMenuItem ?? 样品试验ToolStripMenuItem, tabControl1.SelectedIndex);
+        }
+
+        private void ConfigureSampleDashboardLayout()
+        {
+            panelSample.SuspendLayout();
+
+            panelOperations.Dock = DockStyle.None;
+            panelOperations.Margin = Padding.Empty;
+            panelDataDisplay.Dock = DockStyle.None;
+            panelDataDisplay.AutoScroll = true;
+            panelDataDisplay.Margin = Padding.Empty;
+            panelDataDisplay.Paint -= PanelDataDisplay_Paint;
+
+            chartPanel.Dock = DockStyle.None;
+            chartPanel.Margin = Padding.Empty;
+
+            _connectionStatusPanel?.Dispose();
+            _connectionStatusPanel = CreateConnectionStatusPanel();
+            _connectionStatusPanel.Dock = DockStyle.None;
+            _connectionStatusPanel.Margin = Padding.Empty;
+
+            panelMessageBottom.Dock = DockStyle.None;
+            panelMessageBottom.Height = 50;
+            panelMessageBottom.Margin = Padding.Empty;
+            ConfigureMessageHeader();
+
+            messagePanel.Dock = DockStyle.None;
+            messagePanel.Margin = Padding.Empty;
+            messagePanel.Padding = Padding.Empty;
+
+            panelSample.Controls.Remove(panelOperations);
+            panelSample.Controls.Remove(panelDataDisplay);
+            panelSample.Controls.Remove(chartPanel);
+            panelSample.Controls.Remove(panelMessageBottom);
+            panelSample.Controls.Remove(messagePanel);
+            panelSample.Controls.Remove(_connectionStatusPanel);
+            panelSample.Controls.Add(panelOperations);
+            panelSample.Controls.Add(panelDataDisplay);
+            panelSample.Controls.Add(chartPanel);
+            panelSample.Controls.Add(_connectionStatusPanel);
+            panelSample.Controls.Add(panelMessageBottom);
+            panelSample.Controls.Add(messagePanel);
+            panelOperations.BringToFront();
+
+            if (!_sampleStaticLayoutHooked)
+            {
+                panelSample.Resize += (_, _) => ApplySampleStaticLayout();
+                _sampleStaticLayoutHooked = true;
+            }
+
+            ApplySampleStaticLayout();
+
+            panelSample.ResumeLayout();
+        }
+
+        private void ApplySampleStaticLayout()
+        {
+            if (_connectionStatusPanel == null)
+            {
+                return;
+            }
+
+            const int pad = 12;
+            const int gap = 10;
+            const int operationHeight = 76;
+            const int leftWidth = 300;
+            const int rightWidth = 500;
+            const int messageHeight = 300;
+            const int messageHeaderHeight = 50;
+
+            var width = panelSample.ClientSize.Width;
+            var height = panelSample.ClientSize.Height;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            panelOperations.SetBounds(0, 0, width, operationHeight);
+
+            var messageTop = Math.Max(operationHeight + gap, height - pad - messageHeight);
+            var messageWidth = Math.Max(360, width - pad * 2);
+            panelMessageBottom.SetBounds(pad, messageTop, messageWidth, messageHeaderHeight);
+            messagePanel.SetBounds(pad, messageTop + messageHeaderHeight, messageWidth, Math.Max(72, height - pad - messageTop - messageHeaderHeight));
+
+            var mainTop = operationHeight + gap;
+            var mainHeight = Math.Max(260, messageTop - gap - mainTop);
+            var rightX = Math.Max(pad + leftWidth + gap + 360 + gap, width - pad - rightWidth);
+            var chartX = pad + leftWidth + gap;
+            var chartWidth = Math.Max(360, rightX - gap - chartX);
+
+            panelDataDisplay.SetBounds(pad, mainTop, leftWidth, mainHeight);
+            chartPanel.SetBounds(chartX, mainTop, chartWidth, mainHeight);
+            _connectionStatusPanel.SetBounds(rightX, mainTop, rightWidth, mainHeight);
+
+            PositionOperationControls();
+            PositionConnectionStatusControls();
+            ResizeMetricCards();
+        }
+
+        private void ConfigureMessageHeader()
+        {
+            panelMessageBottom.SuspendLayout();
+            panelMessageBottom.Controls.Clear();
+            panelMessageBottom.BackColor = UiTheme.SurfaceStrongAlt;
+            panelMessageBottom.Padding = new Padding(10, 6, 10, 0);
+
+            var buttonHost = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Left,
+                Width = 300,
+                Height = 40,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                Tag = "theme-skip"
+            };
+
+            btnSystemMessage.Text = "系统信息";
+            btnRealTimeData.Text = "实时数据";
+            btnSystemMessage.Margin = new Padding(0, 0, 8, 0);
+            btnRealTimeData.Margin = Padding.Empty;
+            buttonHost.Controls.Add(btnSystemMessage);
+            buttonHost.Controls.Add(btnRealTimeData);
+
+            var metaHost = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Right,
+                Width = 430,
+                Height = 38,
+                FlowDirection = FlowDirection.LeftToRight,
+                WrapContents = false,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = new Padding(0, 9, 0, 0),
+                Tag = "theme-skip"
+            };
+
+            _lblMessageRowCount = CreateMessageMetaLabel("最近 0 条", 120);
+            _lblMessageRefresh = CreateMessageMetaLabel("刷新 0.8s", 120);
+            _lblMessagePortState = CreateMessageMetaLabel("COM9 --", 150);
+            metaHost.Controls.Add(_lblMessageRowCount);
+            metaHost.Controls.Add(_lblMessageRefresh);
+            metaHost.Controls.Add(_lblMessagePortState);
+
+            panelMessageBottom.Controls.Add(metaHost);
+            panelMessageBottom.Controls.Add(buttonHost);
+            panelMessageBottom.ResumeLayout();
+        }
+
+        private Label CreateMessageMetaLabel(string text, int width)
+        {
+            return new Label
+            {
+                AutoSize = false,
+                Width = width,
+                Height = 24,
+                Text = text,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                Margin = new Padding(0, 0, 12, 0),
+                Tag = "theme-skip"
+            };
+        }
+
+        private Panel CreateConnectionStatusPanel()
+        {
+            var panel = new Panel
+            {
+                BackColor = UiTheme.SurfaceRaised,
+                Padding = new Padding(12),
+                Tag = "theme-skip"
+            };
+
+            var sharedCard = CreateSharedPortCard();
+            var stateCard = CreateTestStateCard();
+            var summaryCard = CreateRuntimeSummaryCard();
+            var recentCard = CreateRecentStatusCard();
+            var note = CreateConnectionNote();
+
+            sharedCard.Name = "SharedPortCard";
+            stateCard.Name = "TestStateCard";
+            summaryCard.Name = "RuntimeSummaryCard";
+            recentCard.Name = "RecentStatusCard";
+            note.Name = "ConnectionNote";
+
+            panel.Controls.Add(sharedCard);
+            panel.Controls.Add(stateCard);
+            panel.Controls.Add(summaryCard);
+            panel.Controls.Add(recentCard);
+            panel.Controls.Add(note);
+            panel.AutoScroll = false;
+
+            panel.Resize += (_, _) => PositionConnectionStatusControls();
+            return panel;
+        }
+
+        private void PositionConnectionStatusControls()
+        {
+            if (_connectionStatusPanel == null)
+            {
+                return;
+            }
+
+            var useLooseLayout = _connectionStatusPanel.ClientSize.Height >= 720;
+            var pad = useLooseLayout ? 12 : 8;
+            var baseGap = useLooseLayout ? 12 : 5;
+            var width = Math.Max(260, _connectionStatusPanel.ClientSize.Width - pad * 2);
+            var availableHeight = Math.Max(0, _connectionStatusPanel.ClientSize.Height - pad * 2);
+
+            var sharedHeight = useLooseLayout ? 148 : 118;
+            var stateHeight = useLooseLayout ? 220 : 190;
+            var summaryHeight = useLooseLayout ? 150 : 136;
+            var recentHeight = useLooseLayout ? 150 : 108;
+            var noteHeight = useLooseLayout ? 56 : 42;
+            var gap = baseGap;
+
+            var baseTotal = sharedHeight + stateHeight + summaryHeight + recentHeight + noteHeight + gap * 4;
+            var extra = Math.Max(0, availableHeight - baseTotal);
+            if (extra > 0)
+            {
+                var sharedExtra = Math.Min(18, extra * 8 / 100);
+                var stateExtra = Math.Min(52, extra * 20 / 100);
+                var summaryExtra = Math.Min(76, extra * 28 / 100);
+                var recentExtra = Math.Min(80, extra * 30 / 100);
+                var noteExtra = Math.Min(12, extra * 4 / 100);
+
+                sharedHeight += sharedExtra;
+                stateHeight += stateExtra;
+                summaryHeight += summaryExtra;
+                recentHeight += recentExtra;
+                noteHeight += noteExtra;
+
+                var usedExtra = sharedExtra + stateExtra + summaryExtra + recentExtra + noteExtra;
+                gap += Math.Min(28, Math.Max(0, extra - usedExtra) / 4);
+            }
+
+            var sharedCard = _connectionStatusPanel.Controls["SharedPortCard"];
+            var stateCard = _connectionStatusPanel.Controls["TestStateCard"];
+            var summaryCard = _connectionStatusPanel.Controls["RuntimeSummaryCard"];
+            var recentCard = _connectionStatusPanel.Controls["RecentStatusCard"];
+            var note = _connectionStatusPanel.Controls["ConnectionNote"];
+
+            var y = pad;
+            sharedCard?.SetBounds(pad, y, width, sharedHeight);
+            y += sharedHeight + gap;
+            stateCard?.SetBounds(pad, y, width, stateHeight);
+            y += stateHeight + gap;
+            summaryCard?.SetBounds(pad, y, width, summaryHeight);
+            y += summaryHeight + gap;
+            recentCard?.SetBounds(pad, y, width, recentHeight);
+            y += recentHeight + gap;
+            note?.SetBounds(pad, y, width, noteHeight);
+        }
+
+        private Control CreateConnectionHeader()
+        {
+            var header = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            var title = new Label
+            {
+                Text = "设备连接",
+                Dock = DockStyle.Left,
+                Width = 150,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            var subtitle = new Label
+            {
+                Text = "串口共用检测",
+                Dock = DockStyle.Right,
+                Width = 120,
+                TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            header.Controls.Add(subtitle);
+            header.Controls.Add(title);
+            return header;
+        }
+
+        private Control CreateSharedPortCard()
+        {
+            var card = CreateDashboardCard();
+            card.Dock = DockStyle.None;
+            card.Margin = Padding.Empty;
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 30F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22F));
+
+            var header = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 3,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = new Padding(12, 0, 12, 0),
+                BackColor = UiTheme.SurfaceStrong,
+                Tag = "theme-skip"
+            };
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 22F));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            header.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 92F));
+            header.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _lblSharedPortLed = new Label
+            {
+                Text = "●",
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = ContentAlignment.MiddleCenter,
+                ForeColor = UiTheme.Success,
+                Font = new Font("Segoe UI", 12F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            _lblSharedPortTitle = new Label
+            {
+                Text = "COM9 共口",
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 10.5F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                AutoEllipsis = true
+            };
+
+            _lblSharedPortSummary = new Label
+            {
+                Text = "已连接",
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = UiTheme.Success,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            header.Controls.Add(_lblSharedPortLed, 0, 0);
+            header.Controls.Add(_lblSharedPortTitle, 1, 0);
+            header.Controls.Add(_lblSharedPortSummary, 2, 0);
+
+            var devices = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = new Padding(14, 6, 14, 1),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            devices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            devices.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            devices.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            devices.Controls.Add(CreateConnectionDeviceColumn("PID 控制器", "COM9 / 站号 2", out _lblPidConnectionState, out _lblPidConnectionDetail), 0, 0);
+            devices.Controls.Add(CreateConnectionDeviceColumn("ADAM 采集", "COM9 / 站号 1", out _lblAdamConnectionState, out _lblAdamConnectionDetail), 1, 0);
+
+            var footer = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = new Padding(14, 0, 14, 4),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70F));
+            footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30F));
+            footer.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            _lblSharedPortDetail = CreateFlowLabel("COM9 分时访问", UiTheme.InkMuted, 8F, FontStyle.Bold);
+            _lblLastHandshake = CreateFlowLabel("--", UiTheme.InkMuted, 8F, FontStyle.Bold);
+            _lblLastHandshake.TextAlign = ContentAlignment.MiddleRight;
+            footer.Controls.Add(_lblSharedPortDetail, 0, 0);
+            footer.Controls.Add(_lblLastHandshake, 1, 0);
+
+            layout.Controls.Add(header, 0, 0);
+            layout.Controls.Add(devices, 0, 1);
+            layout.Controls.Add(footer, 0, 2);
+            card.Controls.Add(layout);
+            return card;
+        }
+
+        private Control CreateConnectionDeviceColumn(
+            string title,
+            string detail,
+            out Label stateLabel,
+            out Label detailLabel)
+        {
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 3,
+                Margin = new Padding(0, 0, 8, 0),
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 34F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 33F));
+
+            var titleLabel = CreateFlowLabel(title, UiTheme.Ink, 8.4F, FontStyle.Bold);
+            detailLabel = CreateFlowLabel(detail, UiTheme.InkMuted, 7.8F, FontStyle.Regular);
+            stateLabel = CreateFlowLabel("● 正常", UiTheme.Success, 8F, FontStyle.Bold);
+
+            layout.Controls.Add(titleLabel, 0, 0);
+            layout.Controls.Add(detailLabel, 0, 1);
+            layout.Controls.Add(stateLabel, 0, 2);
+            return layout;
+        }
+
+        private Control CreateDeviceBlock(
+            string title,
+            string subtitle,
+            out Label stateLabel,
+            out Label detailLabel)
+        {
+            var block = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 0, 1, 0),
+                Padding = new Padding(10, 5, 10, 5),
+                BackColor = UiTheme.Surface,
+                Tag = "theme-skip"
+            };
+
+            var titleLabel = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Top,
+                Height = 18,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            detailLabel = new Label
+            {
+                Text = subtitle,
+                Dock = DockStyle.Top,
+                Height = 16,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 7.8F, FontStyle.Regular, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            stateLabel = new Label
+            {
+                Text = "正常",
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.Success,
+                Font = new Font("Microsoft YaHei", 8F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            block.Controls.Add(stateLabel);
+            block.Controls.Add(detailLabel);
+            block.Controls.Add(titleLabel);
+            return block;
+        }
+
+        private Label CreateStaticText(
+            string text,
+            int x,
+            int y,
+            int width,
+            int height,
+            Color color,
+            float size,
+            FontStyle style)
+        {
+            return new Label
+            {
+                Text = text,
+                Location = new Point(x, y),
+                Size = new Size(width, height),
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = color,
+                Font = new Font("Microsoft YaHei", size, style, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+        }
+
+        private Label CreateFlowLabel(
+            string text,
+            Color color,
+            float size,
+            FontStyle style,
+            ContentAlignment align = ContentAlignment.MiddleLeft)
+        {
+            return new Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = align,
+                ForeColor = color,
+                Font = new Font("Microsoft YaHei", size, style, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+        }
+
+        private TableLayoutPanel CreateTwoColumnInfoRow(string label, string value)
+        {
+            var valueLabel = CreateFlowLabel(value, UiTheme.Ink, 8.5F, FontStyle.Bold);
+            return CreateValueRow(label, valueLabel);
+        }
+
+        private TableLayoutPanel CreateValueRow(string label, Control valueControl)
+        {
+            var row = CreateInfoRowBase(columnCount: 2);
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            row.Controls.Add(CreateFlowLabel(label, UiTheme.InkMuted, 8F, FontStyle.Bold), 0, 0);
+            row.Controls.Add(valueControl, 1, 0);
+            return row;
+        }
+
+        private TableLayoutPanel CreateStationInfoRow()
+        {
+            var row = CreateInfoRowBase(columnCount: 3);
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 76F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            row.Controls.Add(CreateFlowLabel("站号", UiTheme.InkMuted, 8F, FontStyle.Bold), 0, 0);
+            row.Controls.Add(CreateFlowLabel($"PID {ConfigurationHelper.GetPidStationNumber()}", UiTheme.Ink, 8.5F, FontStyle.Bold), 1, 0);
+            row.Controls.Add(CreateFlowLabel($"ADAM {ConfigurationHelper.GetSensorStationNumber()}", UiTheme.Ink, 8.5F, FontStyle.Bold), 2, 0);
+            return row;
+        }
+
+        private TableLayoutPanel CreateEditorRow(string label, Control editor)
+        {
+            var row = CreateInfoRowBase(columnCount: 2);
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82F));
+            row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            editor.Margin = Padding.Empty;
+            row.Controls.Add(CreateFlowLabel(label, UiTheme.InkMuted, 8F, FontStyle.Bold), 0, 0);
+            row.Controls.Add(editor, 1, 0);
+            return row;
+        }
+
+        private TableLayoutPanel CreateInfoRowBase(int columnCount)
+        {
+            var row = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = columnCount,
+                RowCount = 1,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            row.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            return row;
+        }
+
+        private Control CreateTestStateCard()
+        {
+            var card = CreateDashboardCard();
+            card.Dock = DockStyle.None;
+            card.Margin = Padding.Empty;
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 8,
+                Margin = Padding.Empty,
+                Padding = new Padding(14, 6, 14, 6),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 24F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 21F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 21F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 27F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            layout.Controls.Add(CreateFlowLabel("试验状态", UiTheme.Ink, 10.5F, FontStyle.Bold), 0, 0);
+            layout.Controls.Add(CreateTwoColumnInfoRow("目标温度", $"{ConfigurationHelper.GetPidTemperature():F1} ℃"), 0, 1);
+            layout.Controls.Add(CreateStationInfoRow(), 0, 2);
+
+            var mode = CreateMainTestModeComboBox();
+            mode.Dock = DockStyle.Fill;
+            layout.Controls.Add(CreateEditorRow("试验模式", mode), 0, 3);
+
+            var duration = CreateMainDurationEditor();
+            duration.Dock = DockStyle.Fill;
+            layout.Controls.Add(CreateEditorRow("试验时长", duration), 0, 4);
+
+            _lblStateProductId = CreateFlowLabel("--", UiTheme.Ink, 8.2F, FontStyle.Bold);
+            layout.Controls.Add(CreateValueRow("样品编号", _lblStateProductId), 0, 5);
+            _lblStateTestId = CreateFlowLabel("--", UiTheme.Ink, 8.2F, FontStyle.Bold);
+            layout.Controls.Add(CreateValueRow("样品标识", _lblStateTestId), 0, 6);
+
+            _lblMainTestModeHint = new Label
+            {
+                Text = "请先新建本次试验",
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = ContentAlignment.TopLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei UI", 7.5F, FontStyle.Regular, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+            layout.Controls.Add(_lblMainTestModeHint, 0, 7);
+            card.Controls.Add(layout);
+
+            SyncMainTestModeControls(TryGetCurrentTestData(), _testMaster1?.Status ?? MasterStatus.Idle);
+            return card;
+        }
+
+        private Control CreateRuntimeSummaryCard()
+        {
+            var card = CreateDashboardCard();
+            card.Dock = DockStyle.None;
+            card.Margin = Padding.Empty;
+
+            var grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 8, 10, 10),
+                ColumnCount = 2,
+                RowCount = 2,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 50F));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+            grid.RowStyles.Add(new RowStyle(SizeType.Percent, 50F));
+
+            grid.Controls.Add(CreateRuntimeTile("连接握手", "重试", out _lblRuntimeHandshake), 0, 0);
+            grid.Controls.Add(CreateRuntimeTile("采样节拍", "0.8s", out _lblRuntimeSampleRate), 1, 0);
+            grid.Controls.Add(CreateRuntimeTile("记录状态", "未记录", out _lblRuntimeRecordState), 0, 1);
+            grid.Controls.Add(CreateRuntimeTile("报警状态", "正常", out _lblRuntimeAlarmState), 1, 1);
+
+            card.Controls.Add(grid);
+            card.Controls.Add(CreateDashboardSectionTitle("运行摘要", "随结果刷新"));
+            return card;
+        }
+
+        private Control CreateRecentStatusCard()
+        {
+            var card = CreateDashboardCard();
+            card.Dock = DockStyle.None;
+            card.Margin = Padding.Empty;
+            _recentStatusTimeLabels = new Label?[3];
+            _recentStatusMessageLabels = new Label?[3];
+
+            var grid = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                Padding = new Padding(10, 8, 10, 8),
+                ColumnCount = 1,
+                RowCount = 3,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            for (int i = 0; i < 3; i++)
+            {
+                grid.RowStyles.Add(new RowStyle(SizeType.Percent, 33.333F));
+                grid.Controls.Add(CreateRecentStatusRow(i), 0, i);
+            }
+
+            card.Controls.Add(grid);
+            card.Controls.Add(CreateDashboardSectionTitle("最近状态", "最近 3 条"));
+            UpdateRecentStatusEvents();
+            return card;
+        }
+
+        private Panel CreateDashboardSectionTitle(string title, string meta)
+        {
+            var header = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 32,
+                BackColor = UiTheme.SurfaceRaised,
+                Padding = new Padding(12, 0, 10, 0),
+                Tag = "theme-skip"
+            };
+
+            var titleLabel = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Left,
+                Width = 180,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 9.5F, FontStyle.Bold, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            var metaLabel = new Label
+            {
+                Text = meta,
+                Dock = DockStyle.Right,
+                Width = 120,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8F, FontStyle.Bold, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleRight,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            header.Controls.Add(metaLabel);
+            header.Controls.Add(titleLabel);
+            return header;
+        }
+
+        private Panel CreateRuntimeTile(string title, string value, out Label valueLabel)
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0),
+                Padding = new Padding(8, 2, 8, 2),
+                BackColor = UiTheme.SurfaceRaised,
+                Tag = "theme-skip"
+            };
+            panel.Paint += (_, e) => ControlPaint.DrawBorder(
+                e.Graphics,
+                panel.ClientRectangle,
+                UiTheme.GridLine,
+                ButtonBorderStyle.Solid);
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 1,
+                RowCount = 2,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 16F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            var titleLabel = new Label
+            {
+                Text = title,
+                Dock = DockStyle.Fill,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 7.4F, FontStyle.Bold, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            valueLabel = new Label
+            {
+                Text = value,
+                Dock = DockStyle.Fill,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Consolas", 9.8F, FontStyle.Bold, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+
+            layout.Controls.Add(titleLabel, 0, 0);
+            layout.Controls.Add(valueLabel, 0, 1);
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
+        private Panel CreateRecentStatusRow(int index)
+        {
+            var row = new Panel
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0),
+                Tag = "theme-skip"
+            };
+            row.Paint += (_, e) => ControlPaint.DrawBorder(
+                e.Graphics,
+                row.ClientRectangle,
+                Color.Transparent,
+                0,
+                ButtonBorderStyle.None,
+                Color.Transparent,
+                0,
+                ButtonBorderStyle.None,
+                Color.Transparent,
+                0,
+                ButtonBorderStyle.None,
+                UiTheme.GridLine,
+                1,
+                ButtonBorderStyle.Solid);
+
+            var time = new Label
+            {
+                Text = "--:--:--",
+                Dock = DockStyle.Fill,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Consolas", 8.2F, FontStyle.Bold, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            var message = new Label
+            {
+                Text = "暂无状态",
+                Dock = DockStyle.Fill,
+                ForeColor = UiTheme.Ink,
+                Font = new Font("Microsoft YaHei", 8F, FontStyle.Regular, GraphicsUnit.Point),
+                TextAlign = ContentAlignment.MiddleLeft,
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.Transparent,
+                Margin = Padding.Empty,
+                Padding = Padding.Empty,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _recentStatusTimeLabels![index] = time;
+            _recentStatusMessageLabels![index] = message;
+            layout.Controls.Add(time, 0, 0);
+            layout.Controls.Add(message, 1, 0);
+            row.Controls.Add(layout);
+            return row;
+        }
+
+        private ComboBox CreateMainTestModeComboBox()
+        {
+            _comboMainTestMode = new ComboBox
+            {
+                Dock = DockStyle.None,
+                DropDownStyle = ComboBoxStyle.DropDownList,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                BackColor = Color.White,
+                ForeColor = UiTheme.Ink,
+                Margin = new Padding(0, 2, 0, 2),
+                Tag = "theme-skip"
+            };
+            _comboMainTestMode.Items.Add(StandardTestModeText);
+            _comboMainTestMode.Items.Add(FixedDurationTestModeText);
+            _comboMainTestMode.SelectedItem = StandardTestModeText;
+            _comboMainTestMode.SelectedIndexChanged += (_, _) => ApplyMainTestModeSelection(showWarning: false);
+            return _comboMainTestMode;
+        }
+
+        private Control CreateMainDurationEditor()
+        {
+            var editor = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                BackColor = Color.Transparent,
+                Margin = new Padding(0),
+                Padding = Padding.Empty,
+                Tag = "theme-skip"
+            };
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            editor.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 42F));
+            editor.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _txtMainDurationMinutes = new TextBox
+            {
+                Dock = DockStyle.Fill,
+                Text = (DefaultTargetDurationSeconds / 60).ToString(),
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                BorderStyle = BorderStyle.FixedSingle,
+                BackColor = Color.White,
+                ForeColor = UiTheme.Ink,
+                Margin = new Padding(0, 2, 8, 2),
+                Tag = "theme-skip"
+            };
+            _txtMainDurationMinutes.Leave += (_, _) => ApplyMainTestModeSelection(showWarning: false);
+            _txtMainDurationMinutes.KeyDown += (_, e) =>
+            {
+                if (e.KeyCode == Keys.Enter)
+                {
+                    ApplyMainTestModeSelection(showWarning: false);
+                    e.SuppressKeyPress = true;
+                }
+            };
+
+            _lblMainDurationUnit = new Label
+            {
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                Text = "分钟",
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+
+            editor.Controls.Add(_txtMainDurationMinutes, 0, 0);
+            editor.Controls.Add(_lblMainDurationUnit, 1, 0);
+            return editor;
+        }
+
+        private Control CreateConnectionNote()
+        {
+            var panel = new TableLayoutPanel
+            {
+                Dock = DockStyle.None,
+                ColumnCount = 3,
+                RowCount = 1,
+                Padding = new Padding(10, 7, 10, 7),
+                BackColor = UiTheme.SurfaceStrongAlt,
+                Tag = "theme-skip"
+            };
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82F));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
+            panel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _lblHardwareModeSummary = new Label
+            {
+                Name = "HardwareModeSummaryLabel",
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 0, 8, 0),
+                Text = "当前：--",
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8F, FontStyle.Regular, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleLeft,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+
+            var button = new Button
+            {
+                Name = "HardwareDiagnosticsButton",
+                Dock = DockStyle.Fill,
+                Text = "诊断",
+                Tag = ButtonTone.Secondary
+            };
+            UiTheme.StyleButton(button, ButtonTone.Secondary);
+            button.MinimumSize = new Size(72, 26);
+            button.Height = 28;
+            button.Padding = new Padding(8, 0, 8, 0);
+            button.Click += (_, _) => OpenHardwareDiagnostics();
+
+            var switchButton = new Button
+            {
+                Name = "HardwareModeSwitchButton",
+                Dock = DockStyle.Fill,
+                Text = "切换模式",
+                Tag = ButtonTone.Neutral
+            };
+            UiTheme.StyleButton(switchButton, ButtonTone.Neutral);
+            switchButton.MinimumSize = new Size(88, 26);
+            switchButton.Height = 28;
+            switchButton.Padding = new Padding(6, 0, 6, 0);
+            switchButton.Click += (_, _) => SwitchHardwareMode();
+
+            panel.Controls.Add(_lblHardwareModeSummary, 0, 0);
+            panel.Controls.Add(button, 1, 0);
+            panel.Controls.Add(switchButton, 2, 0);
+            return panel;
+        }
+
+        private void OpenHardwareDiagnostics()
+        {
+            using var form = new HardwareDiagnosticsForm(_daqWorker, _testMaster1);
+            form.ShowDialog(this);
+            UpdateConnectionStatus();
+        }
+
+        private void SwitchHardwareMode()
+        {
+            try
+            {
+                var service = new SimulationModeConfigService();
+                var currentSimulationMode = service.IsSimulationModeEnabled();
+                var targetSimulationMode = !currentSimulationMode;
+                var targetText = targetSimulationMode ? "仿真模式" : "真实硬件模式";
+
+                var message =
+                    $"将运行模式切换为“{targetText}”。\n\n" +
+                    "切换会写入 appsettings.json，重启程序后生效。\n" +
+                    "当前已经初始化的串口和仿真器不会在运行中重建。\n\n" +
+                    "是否继续？";
+
+                if (!ExceptionHandler.Confirm(message, "切换运行模式"))
+                {
+                    return;
+                }
+
+                service.SetSimulationMode(targetSimulationMode);
+                var successMessage = $"运行模式已切换为“{targetText}”，请重启程序后生效。";
+                AppendSystemMessage(successMessage);
+                if (_lblHardwareModeSummary != null)
+                {
+                    _lblHardwareModeSummary.Text = $"重启后：{targetText}";
+                    _lblHardwareModeSummary.ForeColor = UiTheme.Warning;
+                }
+
+                ExceptionHandler.ShowInfo(successMessage, "切换完成");
+            }
+            catch (Exception ex)
+            {
+                ExceptionHandler.Handle(ex, "切换运行模式失败，请检查 appsettings.json 是否可写。", "切换运行模式");
+            }
+        }
+
+        private Panel CreateDashboardCard()
+        {
+            var card = new Panel
+            {
+                Dock = DockStyle.None,
+                Margin = new Padding(0, 0, 0, 12),
+                BackColor = UiTheme.Surface,
+                BorderStyle = BorderStyle.None,
+                Tag = "theme-skip"
+            };
+            card.Paint += (_, e) => ControlPaint.DrawBorder(
+                e.Graphics,
+                card.ClientRectangle,
+                UiTheme.Border,
+                ButtonBorderStyle.Solid);
+            return card;
+        }
+
+        private Label CreateDetailLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 7.8F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+        }
+
+        private Label CreateMutedLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+        }
+
+        private Label CreateStrongLabel(string text)
+        {
+            return new Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 8.4F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+        }
+
+        private void StartConnectionStatusTimer()
+        {
+            if (_connectionStatusTimer == null)
+            {
+                _connectionStatusTimer = new System.Windows.Forms.Timer { Interval = 2000 };
+                _connectionStatusTimer.Tick += (_, _) => UpdateConnectionStatus();
+            }
+
+            _connectionStatusTimer.Start();
+        }
+
+        private void UpdateConnectionStatus()
+        {
+            var pidPort = _testMaster1?.Manipulator?.PidPortName ?? ConfigurationHelper.GetPidPort();
+            var adamPort = _daqWorker?.SensorPortName ?? ConfigurationHelper.GetSensorPort();
+            var pidOk = _testMaster1?.Manipulator?.IsConnected == true;
+            var adamOk = _daqWorker?.IsSensorConnected == true;
+            var samePort = ConfigurationHelper.AreSameSerialPort(pidPort, adamPort);
+            var connectionOk = pidOk && adamOk;
+            var simulationMode = _testMaster1?.Manipulator?.IsSimulationMode == true
+                || _daqWorker?.IsSimulationMode == true;
+            var warningColor = samePort ? UiTheme.Danger : UiTheme.Warning;
+            var summaryColor = connectionOk ? UiTheme.Success : warningColor;
+            var portTitle = samePort ? $"{pidPort} 共口" : $"{pidPort}/{adamPort}";
+
+            if (_lblSharedPortTitle != null)
+            {
+                _lblSharedPortTitle.Text = portTitle;
+            }
+
+            if (_lblSharedPortSummary != null)
+            {
+                _lblSharedPortSummary.Text = simulationMode
+                    ? "仿真模式"
+                    : connectionOk
+                    ? "已连接"
+                    : samePort ? "连接异常" : "端口异常";
+                _lblSharedPortSummary.ForeColor = summaryColor;
+            }
+
+            if (_lblHardwareModeSummary != null)
+            {
+                _lblHardwareModeSummary.Text = simulationMode ? "当前：仿真模式" : "当前：真实硬件";
+                _lblHardwareModeSummary.ForeColor = simulationMode ? UiTheme.Warning : UiTheme.InkMuted;
+            }
+
+            if (_lblSharedPortLed != null)
+            {
+                _lblSharedPortLed.ForeColor = summaryColor;
+            }
+
+            if (_lblPidConnectionState != null)
+            {
+                _lblPidConnectionState.Text = pidOk ? "● 正常" : "● 未连接";
+                _lblPidConnectionState.ForeColor = pidOk ? UiTheme.Success : UiTheme.Danger;
+            }
+
+            if (_lblPidConnectionDetail != null)
+            {
+                _lblPidConnectionDetail.Text = $"{pidPort} / 站号 {ConfigurationHelper.GetPidStationNumber()}";
+            }
+
+            if (_lblAdamConnectionState != null)
+            {
+                _lblAdamConnectionState.Text = adamOk ? "● 正常" : "● 未连接";
+                _lblAdamConnectionState.ForeColor = adamOk ? UiTheme.Success : UiTheme.Danger;
+            }
+
+            if (_lblAdamConnectionDetail != null)
+            {
+                _lblAdamConnectionDetail.Text = $"{adamPort} / 站号 {ConfigurationHelper.GetSensorStationNumber()}";
+            }
+
+            if (_lblSharedPortDetail != null)
+            {
+                _lblSharedPortDetail.Text = simulationMode
+                    ? "离线仿真，不访问真实串口"
+                    : samePort ? "共口分时访问" : "双串口访问";
+            }
+
+            if (_lblLastHandshake != null)
+            {
+                _lblLastHandshake.Text = simulationMode ? "仿真" : connectionOk ? "正常" : "重试";
+                _lblLastHandshake.ForeColor = connectionOk ? UiTheme.InkMuted : UiTheme.Danger;
+            }
+
+            if (_lblMessagePortState != null)
+            {
+                _lblMessagePortState.Text = $"{(samePort ? pidPort : "串口")} {(simulationMode ? "仿真" : connectionOk ? "正常" : "异常")}";
+                _lblMessagePortState.ForeColor = connectionOk ? UiTheme.InkMuted : summaryColor;
+            }
+
+            if (_lblRuntimeHandshake != null)
+            {
+                _lblRuntimeHandshake.Text = simulationMode ? "仿真" : connectionOk ? "OK" : "重试";
+                _lblRuntimeHandshake.ForeColor = connectionOk ? UiTheme.Success : warningColor;
+            }
+
+            if (_lblRuntimeSampleRate != null)
+            {
+                _lblRuntimeSampleRate.Text = "0.8s";
+                _lblRuntimeSampleRate.ForeColor = UiTheme.TitleInk;
+            }
+
+            if (_lblRuntimeAlarmState != null)
+            {
+                _lblRuntimeAlarmState.Text = simulationMode ? "仿真" : connectionOk ? "正常" : "异常";
+                _lblRuntimeAlarmState.ForeColor = connectionOk ? UiTheme.Success : summaryColor;
+            }
+
+            if (_lblRuntimeRecordState != null)
+            {
+                var status = _testMaster1?.Status ?? MasterStatus.Idle;
+                _lblRuntimeRecordState.Text = GetRecordStateText(status);
+                _lblRuntimeRecordState.ForeColor = GetRecordStateColor(status);
+            }
         }
 
         private void StylePrimaryButtons()
@@ -218,33 +1506,256 @@ namespace ISO11820WinForms.Forms
             };
 
             panelOperations.SuspendLayout();
-
-            int x = 10;
-            const int y = 10;
-            const int gap = 12;
-            int maxHeight = 0;
+            panelOperations.Controls.Clear();
 
             foreach (var button in buttons)
             {
                 button.Size = new Size(
                     Math.Max(button.Width, button.MinimumSize.Width),
                     Math.Max(button.Height, button.MinimumSize.Height));
-                button.Location = new Point(x, y);
-                x += button.Width + gap;
-                maxHeight = Math.Max(maxHeight, button.Height);
+                button.Dock = DockStyle.None;
+                button.Margin = Padding.Empty;
+                panelOperations.Controls.Add(button);
             }
 
-            panelOperations.Height = y + maxHeight + 10;
+            _operationStatusPanel = (Panel)CreateOperationStatusPanel();
+            panelOperations.Controls.Add(_operationStatusPanel);
+            panelOperations.Height = 76;
+            panelOperations.Resize -= PanelOperations_Resize;
+            panelOperations.Resize += PanelOperations_Resize;
+            PositionOperationControls();
             panelOperations.ResumeLayout();
+            UpdateMainStatusPanel(_testMaster1?.Status ?? MasterStatus.Idle);
+        }
+
+        private void PanelOperations_Resize(object? sender, EventArgs e)
+        {
+            PositionOperationControls();
+        }
+
+        private void PositionOperationControls()
+        {
+            const int buttonHeight = 46;
+            var x = 12;
+            var y = Math.Max(10, (panelOperations.ClientSize.Height - buttonHeight) / 2);
+            var buttons = new[]
+            {
+                btnNewTest,
+                btnOpenRecord,
+                btnStopRecord,
+                btnRecordLogs,
+                btnParamSettings,
+                btnStartHeating,
+                btnStopHeating
+            };
+
+            foreach (var button in buttons)
+            {
+                button.SetBounds(x, y, button.Width, buttonHeight);
+                x += button.Width + 10;
+            }
+
+            if (_operationStatusPanel != null)
+            {
+                var statusWidth = 260;
+                _operationStatusPanel.SetBounds(
+                    Math.Max(x + 10, panelOperations.ClientSize.Width - statusWidth - 12),
+                    11,
+                    statusWidth,
+                    54);
+            }
+        }
+
+        private Control CreateOperationStatusPanel()
+        {
+            var panel = new Panel
+            {
+                Dock = DockStyle.None,
+                BackColor = UiTheme.SurfaceStrongAlt,
+                Tag = "theme-skip"
+            };
+
+            var layout = new TableLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                ColumnCount = 2,
+                RowCount = 1,
+                Padding = new Padding(18, 0, 14, 0),
+                Margin = Padding.Empty,
+                BackColor = Color.Transparent,
+                Tag = "theme-skip"
+            };
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 96F));
+            layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
+            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+
+            _lblMainStatusPill = new Label
+            {
+                Dock = DockStyle.Fill,
+                Margin = new Padding(0, 13, 12, 13),
+                TextAlign = ContentAlignment.MiddleCenter,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = UiTheme.SuccessSoft,
+                ForeColor = UiTheme.Success,
+                Tag = "theme-skip"
+            };
+
+            _lblMainStatusTarget = new Label
+            {
+                Dock = DockStyle.Fill,
+                Margin = Padding.Empty,
+                TextAlign = ContentAlignment.MiddleRight,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent,
+                AutoEllipsis = true,
+                Tag = "theme-skip"
+            };
+            layout.Controls.Add(_lblMainStatusPill, 0, 0);
+            layout.Controls.Add(_lblMainStatusTarget, 1, 0);
+            panel.Controls.Add(layout);
+            return panel;
+        }
+
+        private void UpdateMainStatusPanel(MasterStatus status)
+        {
+            if (_lblMainStatusPill != null)
+            {
+                var color = GetStatusColor(status);
+                _lblMainStatusPill.Text = GetStatusText(status);
+                _lblMainStatusPill.ForeColor = color;
+                _lblMainStatusPill.BackColor = status == MasterStatus.Exception
+                    ? Color.FromArgb(247, 226, 222)
+                    : status == MasterStatus.Preparing || status == MasterStatus.Complete
+                        ? Color.FromArgb(247, 236, 213)
+                        : UiTheme.SuccessSoft;
+            }
+
+            if (_lblMainStatusTarget != null)
+            {
+                _lblMainStatusTarget.Text = $"目标 {ConfigurationHelper.GetPidTemperature():F1} ℃";
+            }
+
+            if (_lblRuntimeRecordState != null)
+            {
+                _lblRuntimeRecordState.Text = GetRecordStateText(status);
+                _lblRuntimeRecordState.ForeColor = GetRecordStateColor(status);
+            }
+        }
+
+        private static string GetStatusText(MasterStatus status)
+        {
+            return status switch
+            {
+                MasterStatus.Preparing => "升温中",
+                MasterStatus.Ready => "可记录",
+                MasterStatus.Recording => "记录中",
+                MasterStatus.Complete => "待保存",
+                MasterStatus.Exception => "异常",
+                _ => "未开始"
+            };
+        }
+
+        private static string GetRecordStateText(MasterStatus status)
+        {
+            return status switch
+            {
+                MasterStatus.Ready => "可记录",
+                MasterStatus.Recording => "记录中",
+                MasterStatus.Complete => "待保存",
+                MasterStatus.Exception => "异常",
+                _ => "未记录"
+            };
+        }
+
+        private static Color GetStatusColor(MasterStatus status)
+        {
+            return status switch
+            {
+                MasterStatus.Preparing => UiTheme.Warning,
+                MasterStatus.Complete => UiTheme.Warning,
+                MasterStatus.Exception => UiTheme.Danger,
+                _ => UiTheme.Success
+            };
+        }
+
+        private static Color GetRecordStateColor(MasterStatus status)
+        {
+            return status switch
+            {
+                MasterStatus.Recording => UiTheme.Success,
+                MasterStatus.Ready => UiTheme.Success,
+                MasterStatus.Complete => UiTheme.Warning,
+                MasterStatus.Exception => UiTheme.Danger,
+                _ => UiTheme.InkMuted
+            };
         }
 
         private void StyleDataTables()
         {
             UiTheme.StyleDataGridView(dgvSystemMessage);
             UiTheme.StyleDataGridView(dgvRealTimeData);
+            StyleDashboardMessageTables();
             UiTheme.StyleDataGridView(dgvSurfaceTemp);
             UiTheme.StyleDataGridView(dgvReportData);
             UiTheme.StyleDataGridView(dgvQueryData);
+        }
+
+        private void StyleDashboardMessageTables()
+        {
+            var numberFont = new Font("Consolas", 10F, FontStyle.Regular, GraphicsUnit.Point);
+            var textFont = new Font("Microsoft YaHei", 10F, FontStyle.Regular, GraphicsUnit.Point);
+
+            foreach (var grid in new[] { dgvSystemMessage, dgvRealTimeData })
+            {
+                grid.BorderStyle = BorderStyle.None;
+                grid.BackgroundColor = UiTheme.Surface;
+                grid.ColumnHeadersHeight = 34;
+                grid.RowTemplate.Height = 32;
+                grid.AllowUserToResizeRows = false;
+                grid.AllowUserToResizeColumns = false;
+                grid.CellBorderStyle = DataGridViewCellBorderStyle.Single;
+                grid.ScrollBars = ScrollBars.Both;
+                grid.DefaultCellStyle.Padding = new Padding(8, 0, 8, 0);
+
+                foreach (DataGridViewColumn column in grid.Columns)
+                {
+                    column.SortMode = DataGridViewColumnSortMode.NotSortable;
+                }
+            }
+
+            if (dgvSystemMessage.Columns.Contains("Time"))
+            {
+                dgvSystemMessage.Columns["Time"].Width = 130;
+                dgvSystemMessage.Columns["Time"].DefaultCellStyle.Font = numberFont;
+            }
+
+            if (dgvSystemMessage.Columns.Contains("Content"))
+            {
+                dgvSystemMessage.Columns["Content"].AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+                dgvSystemMessage.Columns["Content"].DefaultCellStyle.Alignment = DataGridViewContentAlignment.MiddleLeft;
+                dgvSystemMessage.Columns["Content"].DefaultCellStyle.Font = textFont;
+            }
+
+            dgvRealTimeData.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.None;
+            SetColumnWidth(dgvRealTimeData, "Timer", 130);
+            SetColumnWidth(dgvRealTimeData, "Temp1", 140);
+            SetColumnWidth(dgvRealTimeData, "Temp2", 140);
+            SetColumnWidth(dgvRealTimeData, "TempSurface", 140);
+            SetColumnWidth(dgvRealTimeData, "TempCenter", 140);
+            SetColumnWidth(dgvRealTimeData, "TempDrift", 140);
+            foreach (DataGridViewColumn column in dgvRealTimeData.Columns)
+            {
+                column.DefaultCellStyle.Font = numberFont;
+            }
+        }
+
+        private static void SetColumnWidth(DataGridView grid, string columnName, int width)
+        {
+            if (grid.Columns.Contains(columnName))
+            {
+                grid.Columns[columnName].Width = width;
+            }
         }
 
         private void ApplyChartTheme()
@@ -253,12 +1764,32 @@ namespace ISO11820WinForms.Forms
             if (_chartModel != null)
             {
                 UiTheme.StylePlot(_chartModel, "实时温度趋势");
+                if (_seriesTF1 != null)
+                {
+                    _seriesTF1.Color = OxyColor.FromRgb(74, 120, 168);
+                }
+
+                if (_seriesTF2 != null)
+                {
+                    _seriesTF2.Color = OxyColor.FromRgb(176, 113, 84);
+                }
+
+                if (_seriesTS != null)
+                {
+                    _seriesTS.Color = OxyColor.FromRgb(79, 143, 118);
+                }
+
+                if (_seriesTC != null)
+                {
+                    _seriesTC.Color = OxyColor.FromRgb(154, 115, 53);
+                }
+
                 _chartModel.InvalidatePlot(false);
             }
 
             if (_chartView != null)
             {
-                _chartView.BackColor = UiTheme.SurfaceRaised;
+                _chartView.BackColor = UiTheme.Surface;
             }
 
             if (_centerChartModel != null)
@@ -269,7 +1800,7 @@ namespace ISO11820WinForms.Forms
 
             if (_centerChartView != null)
             {
-                _centerChartView.BackColor = UiTheme.SurfaceRaised;
+                _centerChartView.BackColor = UiTheme.Surface;
             }
         }
 
@@ -277,77 +1808,113 @@ namespace ISO11820WinForms.Forms
         {
             panelDataDisplay.SuspendLayout();
             panelDataDisplay.Controls.Clear();
-            panelDataDisplay.Padding = new Padding(16, 16, 16, 16);
+            panelDataDisplay.Padding = new Padding(14);
+            lblTempRise.Text = $"温度漂移 ({TestMaster.TemperatureDriftUnitText})";
 
-            var metricsTable = new TableLayoutPanel
+            var y = 12;
+            panelDataDisplay.Controls.Add(CreateMetricHeader(12, y));
+            y += 42;
+            panelDataDisplay.Controls.Add(CreateSectionLabel("计时", 12, y));
+            y += 30;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblTime, dataTime, UiTheme.Accent, true, 72, 12, y));
+            y += 80;
+            panelDataDisplay.Controls.Add(CreateSectionLabel("炉内温度", 12, y));
+            y += 30;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblTemp1, dataTemp1, Color.FromArgb(74, 120, 168), height: 64, x: 12, y: y));
+            y += 72;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblTemp2, dataTemp2, Color.FromArgb(176, 113, 84), height: 64, x: 12, y: y));
+            y += 76;
+            panelDataDisplay.Controls.Add(CreateSectionLabel("试样温度", 12, y));
+            y += 30;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblSurfaceTemp, dataSurfaceTemp, UiTheme.Success, height: 64, x: 12, y: y));
+            y += 72;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblCenterTemp, dataCenterTemp, UiTheme.MetricGlow, height: 64, x: 12, y: y));
+            y += 72;
+            panelDataDisplay.Controls.Add(CreateMetricCard(lblTempRise, dataTempRise, UiTheme.MetricGlow, height: 64, x: 12, y: y));
+
+            if (!_metricDisplayResizeHooked)
             {
-                Dock = DockStyle.Top,
-                AutoSize = true,
-                ColumnCount = 1,
-                RowCount = 7,
-                BackColor = Color.Transparent,
-                Tag = "theme-skip"
-            };
-            metricsTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100F));
-            for (int i = 0; i < metricsTable.RowCount; i++)
-            {
-                metricsTable.RowStyles.Add(new RowStyle(SizeType.AutoSize));
+                panelDataDisplay.Resize += (_, _) => ResizeMetricCards();
+                _metricDisplayResizeHooked = true;
             }
 
-            metricsTable.Controls.Add(CreateMetricHeader(), 0, 0);
-            metricsTable.Controls.Add(CreateMetricCard(lblTime, dataTime, UiTheme.Accent, true), 0, 1);
-            metricsTable.Controls.Add(CreateMetricCard(lblTemp1, dataTemp1, Color.FromArgb(81, 154, 255)), 0, 2);
-            metricsTable.Controls.Add(CreateMetricCard(lblTemp2, dataTemp2, Color.FromArgb(255, 133, 92)), 0, 3);
-            metricsTable.Controls.Add(CreateMetricCard(lblSurfaceTemp, dataSurfaceTemp, Color.FromArgb(72, 178, 138)), 0, 4);
-            metricsTable.Controls.Add(CreateMetricCard(lblCenterTemp, dataCenterTemp, UiTheme.MetricGlow), 0, 5);
-            metricsTable.Controls.Add(CreateMetricCard(lblTempRise, dataTempRise, Color.FromArgb(255, 171, 72)), 0, 6);
-
-            panelDataDisplay.Controls.Add(metricsTable);
+            ResizeMetricCards();
             panelDataDisplay.ResumeLayout();
             panelDataDisplay.Invalidate();
         }
 
-        private Panel CreateMetricHeader()
+        private Panel CreateMetricHeader(int x, int y)
         {
             var header = new Panel
             {
-                Height = 62,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 12),
+                Location = new Point(x, y),
+                Size = new Size(260, 30),
+                Margin = new Padding(0, 0, 0, 10),
                 BackColor = Color.Transparent,
                 Tag = "theme-skip"
             };
 
-            var eyebrow = new Label
-            {
-                Dock = DockStyle.Top,
-                Height = 22,
-                ForeColor = UiTheme.MetricGlow,
-                Font = new Font("Consolas", 10F, FontStyle.Bold, GraphicsUnit.Point),
-                Text = "LIVE HARDWARE STATUS",
-                BackColor = Color.Transparent
-            };
-
             var title = new Label
             {
-                Dock = DockStyle.Fill,
-                ForeColor = UiTheme.Ink,
-                Font = new Font("Microsoft YaHei UI", 13F, FontStyle.Bold, GraphicsUnit.Point),
+                Dock = DockStyle.Left,
+                Width = 160,
+                ForeColor = UiTheme.TitleInk,
+                Font = new Font("Microsoft YaHei", 10F, FontStyle.Bold, GraphicsUnit.Point),
                 Text = "实时监测",
+                TextAlign = ContentAlignment.MiddleLeft,
                 BackColor = Color.Transparent
             };
 
+            var refresh = new Label
+            {
+                Dock = DockStyle.Right,
+                Width = 80,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 8.5F, FontStyle.Regular, GraphicsUnit.Point),
+                Text = "1 秒刷新",
+                TextAlign = ContentAlignment.MiddleRight,
+                BackColor = Color.Transparent
+            };
+
+            header.Controls.Add(refresh);
             header.Controls.Add(title);
-            header.Controls.Add(eyebrow);
             return header;
         }
 
-        private Panel CreateMetricCard(Label titleLabel, Label valueLabel, Color accentColor, bool emphasize = false)
+        private Panel CreateSectionLabel(string text, int x, int y)
+        {
+            var panel = new Panel
+            {
+                Location = new Point(x, y),
+                Size = new Size(260, 26),
+                BackColor = Color.Transparent,
+                Padding = new Padding(0, 2, 0, 0),
+                Tag = "theme-skip"
+            };
+
+            var label = new Label
+            {
+                Text = text,
+                Dock = DockStyle.Fill,
+                TextAlign = ContentAlignment.MiddleLeft,
+                ForeColor = UiTheme.InkMuted,
+                Font = new Font("Microsoft YaHei", 9F, FontStyle.Bold, GraphicsUnit.Point),
+                BackColor = Color.Transparent
+            };
+
+            panel.Controls.Add(label);
+            return panel;
+        }
+
+        private Panel CreateMetricCard(Label titleLabel, Label valueLabel, Color accentColor, bool emphasize = false, int height = 70, int x = 0, int y = 0)
         {
             UiTheme.StyleMetricTitle(titleLabel);
             UiTheme.StyleMetricValue(valueLabel, accentColor, emphasize);
-            titleLabel.Height = 24;
-            valueLabel.Height = emphasize ? 42 : 34;
+            titleLabel.Height = emphasize ? 22 : 20;
+            valueLabel.Height = emphasize ? 36 : 32;
+            valueLabel.Font = emphasize
+                ? new Font("Consolas", 18F, FontStyle.Bold, GraphicsUnit.Point)
+                : new Font("Consolas", 16F, FontStyle.Bold, GraphicsUnit.Point);
 
             var accentBar = new Panel
             {
@@ -360,7 +1927,7 @@ namespace ISO11820WinForms.Forms
             var content = new Panel
             {
                 Dock = DockStyle.Fill,
-                Padding = new Padding(14, 8, 12, 8),
+                Padding = emphasize ? new Padding(14, 6, 12, 6) : new Padding(14, 5, 12, 5),
                 BackColor = Color.Transparent,
                 Tag = "theme-skip"
             };
@@ -371,22 +1938,48 @@ namespace ISO11820WinForms.Forms
 
             var card = new Panel
             {
-                Height = emphasize ? 86 : 72,
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 0, 0, 10),
-                BackColor = UiTheme.SurfaceStrong,
+                Location = new Point(x, y),
+                Size = new Size(260, height),
+                Dock = DockStyle.None,
+                Margin = new Padding(0, 0, 0, 8),
+                BackColor = UiTheme.SurfaceRaised,
+                BorderStyle = BorderStyle.None,
                 Tag = "theme-skip"
             };
 
             card.Controls.Add(content);
             card.Controls.Add(accentBar);
+            card.Paint += (_, e) => ControlPaint.DrawBorder(
+                e.Graphics,
+                card.ClientRectangle,
+                UiTheme.Border,
+                ButtonBorderStyle.Solid);
             return card;
+        }
+
+        private void ResizeMetricCards()
+        {
+            if (panelDataDisplay.Controls.Count == 0)
+            {
+                return;
+            }
+
+            var width = Math.Max(220, panelDataDisplay.ClientSize.Width - 24);
+            foreach (Control control in panelDataDisplay.Controls)
+            {
+                control.Width = width;
+            }
         }
 
         private void ApplyMessageToggleButtonState()
         {
             UiTheme.StyleButton(btnSystemMessage, _showSystemMessages ? ButtonTone.Primary : ButtonTone.Neutral, compact: true);
             UiTheme.StyleButton(btnRealTimeData, _showSystemMessages ? ButtonTone.Neutral : ButtonTone.Primary, compact: true);
+            btnSystemMessage.MinimumSize = new Size(136, 38);
+            btnSystemMessage.Size = new Size(136, 38);
+            btnRealTimeData.MinimumSize = new Size(136, 38);
+            btnRealTimeData.Size = new Size(136, 38);
+            UpdateMessageTableMeta();
         }
 
         /*
@@ -408,7 +2001,7 @@ namespace ISO11820WinForms.Forms
         /*
          * 功能: 绘制数据显示面板（包含炉子图片）
          */
-        private void PanelDataDisplay_Paint(object sender, PaintEventArgs e)
+        private void PanelDataDisplay_Paint(object? sender, PaintEventArgs e)
         {
             try
             {
@@ -454,18 +2047,18 @@ namespace ISO11820WinForms.Forms
                 int x = (panelDataDisplay.Width - width) / 2;
                 int y = panelDataDisplay.Height - height - 24;
 
-                using (var pen = new Pen(Color.FromArgb(111, 126, 139), 2))
+                using (var pen = new Pen(UiTheme.Border, 2))
                 {
                     g.DrawRectangle(pen, x, y, width, height);
                 }
 
-                using (var brush = new SolidBrush(Color.FromArgb(82, 92, 101)))
+                using (var brush = new SolidBrush(UiTheme.GridHeader))
                 {
                     g.FillRectangle(brush, x + 8, y + 8, width - 16, height - 16);
                 }
 
-                using (var font = new Font("Microsoft YaHei UI", 10F, FontStyle.Bold))
-                using (var brush = new SolidBrush(Color.FromArgb(244, 196, 78)))
+                using (var font = new Font("Microsoft YaHei", 10F, FontStyle.Bold))
+                using (var brush = new SolidBrush(UiTheme.VideoLabel))
                 {
                     var text = "试验炉";
                     var textSize = g.MeasureString(text, font);
@@ -546,6 +2139,7 @@ namespace ISO11820WinForms.Forms
                             Log.Information("新建试验成功，样品编号: {ProductId}, 样品标识: {TestId}", 
                                 testData.Productid, testData.Testid);
                             AppendSystemMessage($"创建新试验成功。样品编号: [{testData.Productid}], 样品标识: [{testData.Testid}]");
+                            SyncMainTestModeControls(testData, _testMaster1?.Status ?? SystemContext.Current.Master1?.Status ?? MasterStatus.Idle);
                         }
                     }
                     else
@@ -664,6 +2258,11 @@ namespace ISO11820WinForms.Forms
 
                 var session = GetSessionOrWarn();
                 if (session == null)
+                {
+                    return;
+                }
+
+                if (!ValidateAndApplyMainTestModeForStart())
                 {
                     return;
                 }
@@ -808,9 +2407,11 @@ namespace ISO11820WinForms.Forms
 
                         if (result.ReportGenerated)
                         {
-                            Log.Information("试验完成，数据已保存，Excel报告已生成: {ExcelPath}", result.ExcelReportPath);
-                            AppendSystemMessage($"试验已完成，Excel报告已生成: {result.ExcelReportPath}");
-                            ExceptionHandler.ShowSuccess($"试验数据已保存，Excel报告已生成。\n\nExcel路径：{result.ExcelReportPath}");
+                            Log.Information("试验完成，数据已保存，试验包已生成: {PackagePath}, Excel={ExcelPath}", result.TestPackagePath, result.ExcelReportPath);
+                            AppendSystemMessage(!string.IsNullOrWhiteSpace(result.TestPackagePath)
+                                ? $"试验已完成，试验包已生成: {result.TestPackagePath}"
+                                : $"试验已完成，Excel报告已生成: {result.ExcelReportPath}");
+                            ShowGeneratedTestPackage(result);
                         }
                         else
                         {
@@ -843,6 +2444,39 @@ namespace ISO11820WinForms.Forms
             return null;
         }
 
+        private void ShowGeneratedTestPackage(CommandResult result)
+        {
+            if (!string.IsNullOrWhiteSpace(result.TestPackagePath) && Directory.Exists(result.TestPackagePath))
+            {
+                var message = $"试验数据已保存，试验包已生成。\n\n试验包：{result.TestPackagePath}\n\n是否打开试验包文件夹？";
+                if (ExceptionHandler.Confirm(message, "试验完成"))
+                {
+                    OpenFolder(result.TestPackagePath);
+                }
+
+                return;
+            }
+
+            ExceptionHandler.ShowSuccess($"试验数据已保存，Excel报告已生成。\n\nExcel路径：{result.ExcelReportPath}");
+        }
+
+        private static void OpenFolder(string folderPath)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = folderPath,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "打开试验包文件夹失败: {FolderPath}", folderPath);
+                ExceptionHandler.ShowWarning($"试验包已生成，但打开文件夹失败。\n\n试验包：{folderPath}", "打开试验包");
+            }
+        }
+
         private static bool CanPostTestRecord(MasterStatus status, Testmaster? testData)
         {
             if (testData == null)
@@ -851,6 +2485,50 @@ namespace ISO11820WinForms.Forms
             }
 
             return status == MasterStatus.Complete || testData.Totaltesttime > 0;
+        }
+
+        private static bool CanStartRecord(MasterStatus status, Testmaster? testData)
+        {
+            return status == MasterStatus.Ready
+                && testData != null
+                && !HasUnsavedCompletedTest(testData);
+        }
+
+        private static string? GetStatusMessage(MasterStatus oldStatus, MasterStatus newStatus, Testmaster? testData)
+        {
+            if (oldStatus == newStatus)
+            {
+                return null;
+            }
+
+            if (HasUnsavedCompletedTest(testData) && newStatus == MasterStatus.Complete)
+            {
+                return "试验已完成，请点击“试验记录”保存并生成报告。";
+            }
+
+            if (HasUnsavedCompletedTest(testData)
+                && (newStatus == MasterStatus.Preparing || newStatus == MasterStatus.Ready))
+            {
+                return null;
+            }
+
+            return newStatus switch
+            {
+                MasterStatus.Idle => "系统空闲",
+                MasterStatus.Preparing => "正在升温准备中...",
+                MasterStatus.Ready => "已达到试验条件，可以开始记录",
+                MasterStatus.Recording => "正在记录试验数据...",
+                MasterStatus.Complete => "试验已完成",
+                MasterStatus.Exception => "系统异常",
+                _ => $"状态: {newStatus}"
+            };
+        }
+
+        private static bool HasUnsavedCompletedTest(Testmaster? testData)
+        {
+            return testData != null
+                && testData.Totaltesttime > 0
+                && !string.Equals(testData.Flag, "10000000", StringComparison.Ordinal);
         }
 
         private static bool CanCreateNewTest(MasterStatus status, Testmaster? testData)
@@ -863,6 +2541,175 @@ namespace ISO11820WinForms.Forms
             bool isCompletedOrRecorded = status == MasterStatus.Complete || testData.Totaltesttime > 0;
             bool isSaved = string.Equals(testData.Flag, "10000000", StringComparison.Ordinal);
             return !isCompletedOrRecorded || isSaved;
+        }
+
+        private static bool TryApplyMainPageTestMode(
+            Testmaster? testData,
+            string modeText,
+            string durationMinutesText,
+            out string errorMessage)
+        {
+            errorMessage = string.Empty;
+
+            if (testData == null)
+            {
+                errorMessage = "请先新建本次试验。";
+                return false;
+            }
+
+            if (string.Equals(modeText.Trim(), FixedDurationTestModeText, StringComparison.Ordinal))
+            {
+                if (!int.TryParse(durationMinutesText.Trim(), out int minutes) || minutes <= 0)
+                {
+                    errorMessage = "固定时长模式下，试验时长必须是大于 0 的整数分钟。";
+                    return false;
+                }
+
+                testData.UseFixedDuration = true;
+                testData.TargetDurationSeconds = minutes * 60;
+                return true;
+            }
+
+            testData.UseFixedDuration = false;
+            testData.TargetDurationSeconds = DefaultTargetDurationSeconds;
+            return true;
+        }
+
+        private void ApplyMainTestModeSelection(bool showWarning)
+        {
+            if (_isSyncingMainTestModeControls)
+            {
+                return;
+            }
+
+            var testData = TryGetCurrentTestData();
+            var status = _testMaster1?.Status ?? SystemContext.Current.Master1?.Status ?? MasterStatus.Idle;
+            var modeText = _comboMainTestMode?.SelectedItem?.ToString() ?? StandardTestModeText;
+            var durationText = _txtMainDurationMinutes?.Text ?? (DefaultTargetDurationSeconds / 60).ToString();
+
+            if (!TryApplyMainPageTestMode(testData, modeText, durationText, out string errorMessage))
+            {
+                SetMainTestModeHint(errorMessage, isError: true);
+                if (showWarning && !string.IsNullOrWhiteSpace(errorMessage))
+                {
+                    ExceptionHandler.ShowWarning(errorMessage, "试验时长设置");
+                }
+
+                UpdateMainTestModeControlState(testData, status);
+                return;
+            }
+
+            UpdateMainTestModeControlState(testData, status);
+        }
+
+        private bool ValidateAndApplyMainTestModeForStart()
+        {
+            var testData = TryGetCurrentTestData();
+            var modeText = _comboMainTestMode?.SelectedItem?.ToString()
+                ?? (testData?.UseFixedDuration == true ? FixedDurationTestModeText : StandardTestModeText);
+            var durationText = _txtMainDurationMinutes?.Text
+                ?? ((testData?.TargetDurationSeconds > 0 ? testData.TargetDurationSeconds : DefaultTargetDurationSeconds) / 60).ToString();
+
+            if (!TryApplyMainPageTestMode(testData, modeText, durationText, out string errorMessage))
+            {
+                ExceptionHandler.ShowWarning(errorMessage, "无法开始记录");
+                return false;
+            }
+
+            SyncMainTestModeControls(testData, _testMaster1?.Status ?? SystemContext.Current.Master1?.Status ?? MasterStatus.Idle);
+            return true;
+        }
+
+        private void SyncMainTestModeControls(Testmaster? testData, MasterStatus status)
+        {
+            if (_comboMainTestMode == null || _txtMainDurationMinutes == null)
+            {
+                return;
+            }
+
+            _isSyncingMainTestModeControls = true;
+            try
+            {
+                var targetSeconds = testData?.TargetDurationSeconds > 0
+                    ? testData.TargetDurationSeconds
+                    : DefaultTargetDurationSeconds;
+
+                _comboMainTestMode.SelectedItem = testData?.UseFixedDuration == true
+                    ? FixedDurationTestModeText
+                    : StandardTestModeText;
+                _txtMainDurationMinutes.Text = Math.Max(1, targetSeconds / 60).ToString();
+                UpdateMainTestModeControlState(testData, status);
+            }
+            finally
+            {
+                _isSyncingMainTestModeControls = false;
+            }
+        }
+
+        private void UpdateMainTestModeControlState(Testmaster? testData, MasterStatus status)
+        {
+            var hasTest = testData != null;
+            var isRecording = status == MasterStatus.Recording;
+            var hasRecordedData = testData?.Totaltesttime > 0 || status == MasterStatus.Complete;
+            var isFixedDuration = _comboMainTestMode?.SelectedItem?.ToString() == FixedDurationTestModeText;
+            var canEdit = hasTest && !isRecording && !hasRecordedData;
+
+            if (_comboMainTestMode != null)
+            {
+                _comboMainTestMode.Enabled = canEdit;
+            }
+
+            if (_txtMainDurationMinutes != null)
+            {
+                _txtMainDurationMinutes.Enabled = canEdit && isFixedDuration;
+            }
+
+            if (_lblMainDurationUnit != null)
+            {
+                _lblMainDurationUnit.Enabled = canEdit && isFixedDuration;
+            }
+
+            if (_lblStateProductId != null)
+            {
+                _lblStateProductId.Text = hasTest ? testData!.Productid : "--";
+            }
+
+            if (_lblStateTestId != null)
+            {
+                _lblStateTestId.Text = hasTest ? testData!.Testid : "--";
+            }
+
+            if (!hasTest)
+            {
+                SetMainTestModeHint("请先新建本次试验", isError: false);
+            }
+            else if (isRecording)
+            {
+                SetMainTestModeHint("正在记录，试验模式已锁定", isError: false);
+            }
+            else if (hasRecordedData)
+            {
+                SetMainTestModeHint("本次试验已有记录，试验模式已锁定", isError: false);
+            }
+            else if (isFixedDuration)
+            {
+                SetMainTestModeHint("到达指定分钟数后直接完成", isError: false);
+            }
+            else
+            {
+                SetMainTestModeHint("按标准时间点和终止条件判断", isError: false);
+            }
+        }
+
+        private void SetMainTestModeHint(string text, bool isError)
+        {
+            if (_lblMainTestModeHint == null)
+            {
+                return;
+            }
+
+            _lblMainTestModeHint.Text = text;
+            _lblMainTestModeHint.ForeColor = isError ? UiTheme.Danger : UiTheme.InkMuted;
         }
 
         /*
@@ -1022,6 +2869,10 @@ namespace ISO11820WinForms.Forms
                         _testMaster1.FlameDetected -= OnTestMasterFlameDetected;
                     }
                 }
+
+                _connectionStatusTimer?.Stop();
+                _connectionStatusTimer?.Dispose();
+                _connectionStatusTimer = null;
                 
                 Log.Information("用户退出系统");
             }
@@ -1064,6 +2915,8 @@ namespace ISO11820WinForms.Forms
                     _testMaster1.FlameDetected += OnTestMasterFlameDetected;
                 }
             }
+
+            SyncMainTestModeControls(TryGetCurrentTestData(), _testMaster1?.Status ?? MasterStatus.Idle);
         }
 
         /*
@@ -1194,19 +3047,11 @@ namespace ISO11820WinForms.Forms
                     e.OldStatus, e.NewStatus);
 
                 // 根据新状态更新UI
-                string statusMessage = e.NewStatus switch
-                {
-                    MasterStatus.Idle => "系统空闲",
-                    MasterStatus.Preparing => "正在升温准备中...",
-                    MasterStatus.Ready => "已达到试验条件，可以开始记录",
-                    MasterStatus.Recording => "正在记录试验数据...",
-                    MasterStatus.Complete => "试验已完成",
-                    MasterStatus.Exception => "系统异常",
-                    _ => $"状态: {e.NewStatus}"
-                };
+                var testData = TryGetCurrentTestData();
+                var statusMessage = GetStatusMessage(e.OldStatus, e.NewStatus, testData);
 
                 // 添加系统消息
-                if (e.OldStatus != e.NewStatus)
+                if (!string.IsNullOrWhiteSpace(statusMessage))
                 {
                     AppendSystemMessage(statusMessage);
                 }
@@ -1352,8 +3197,11 @@ namespace ISO11820WinForms.Forms
                         break;
                 }
 
+                btnOpenRecord.Enabled = btnOpenRecord.Enabled && CanStartRecord(status, testData);
                 btnRecordLogs.Enabled = CanPostTestRecord(status, testData);
                 btnNewTest.Enabled = btnNewTest.Enabled && CanCreateNewTest(status, testData);
+                UpdateMainStatusPanel(status);
+                SyncMainTestModeControls(testData, status);
             }
             catch (Exception ex)
             {
@@ -1377,10 +3225,10 @@ namespace ISO11820WinForms.Forms
                 _chartModel = new PlotModel
                 {
                     Title = "实时温度趋势",
-                    Background = OxyColor.FromRgb(UiTheme.SurfaceRaised.R, UiTheme.SurfaceRaised.G, UiTheme.SurfaceRaised.B),
-                    TitleFontSize = 16,
-                    PlotMargins = new OxyThickness(74, 34, 24, 70),
-                    Padding = new OxyThickness(8, 6, 12, 12)
+                    Background = OxyColors.Transparent,
+                    TitleFontSize = 12,
+                    PlotMargins = new OxyThickness(48, 12, 16, 34),
+                    Padding = new OxyThickness(2, 2, 2, 2)
                 };
 
                 // 配置X轴（时间轴）
@@ -1393,12 +3241,12 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 60,  // 每60秒一个主刻度
                     MinorStep = 10,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209),
+                    MajorGridlineColor = OxyColor.FromRgb(UiTheme.GridLine.R, UiTheme.GridLine.G, UiTheme.GridLine.B),
                     AxislineStyle = LineStyle.Solid,
-                    AxislineColor = OxyColor.FromRgb(96, 108, 120),
-                    TicklineColor = OxyColor.FromRgb(96, 108, 120),
-                    TextColor = OxyColor.FromRgb(73, 85, 96),
-                    TitleColor = OxyColor.FromRgb(44, 54, 63),
+                    AxislineColor = OxyColor.FromRgb(153, 153, 153),
+                    TicklineColor = OxyColor.FromRgb(136, 136, 136),
+                    TextColor = OxyColor.FromRgb(UiTheme.InkMuted.R, UiTheme.InkMuted.G, UiTheme.InkMuted.B),
+                    TitleColor = OxyColor.FromRgb(UiTheme.TitleInk.R, UiTheme.TitleInk.G, UiTheme.TitleInk.B),
                     FontSize = 10,
                     TitleFontSize = 11,
                     AxisTitleDistance = 12
@@ -1415,7 +3263,7 @@ namespace ISO11820WinForms.Forms
                     MajorStep = 100,
                     MinorStep = 20,
                     MajorGridlineStyle = LineStyle.Solid,
-                    MajorGridlineColor = OxyColor.FromRgb(224, 218, 209)
+                    MajorGridlineColor = OxyColor.FromRgb(UiTheme.GridLine.R, UiTheme.GridLine.G, UiTheme.GridLine.B)
                 };
                 _chartModel.Axes.Add(yAxis);
 
@@ -1423,8 +3271,8 @@ namespace ISO11820WinForms.Forms
                 _seriesTF1 = new LineSeries
                 {
                     Title = "TF1(炉内温度1)",
-                    Color = OxyColor.FromRgb(83, 147, 245),
-                    StrokeThickness = 2.8,
+                    Color = OxyColor.FromRgb(74, 120, 168),
+                    StrokeThickness = 2.0,
                     MarkerType = MarkerType.None,
                     LineStyle = LineStyle.Solid
                 };
@@ -1433,8 +3281,8 @@ namespace ISO11820WinForms.Forms
                 _seriesTF2 = new LineSeries
                 {
                     Title = "TF2(炉内温度2)",
-                    Color = OxyColor.FromRgb(245, 128, 87),
-                    StrokeThickness = 2.8,
+                    Color = OxyColor.FromRgb(176, 113, 84),
+                    StrokeThickness = 2.0,
                     MarkerType = MarkerType.None,
                     LineStyle = LineStyle.Solid
                 };
@@ -1443,8 +3291,8 @@ namespace ISO11820WinForms.Forms
                 _seriesTS = new LineSeries
                 {
                     Title = "TS(表面温度)",
-                    Color = OxyColor.FromRgb(70, 178, 137),
-                    StrokeThickness = 2.8,
+                    Color = OxyColor.FromRgb(79, 143, 118),
+                    StrokeThickness = 2.0,
                     MarkerType = MarkerType.None,
                     LineStyle = LineStyle.Solid
                 };
@@ -1453,8 +3301,8 @@ namespace ISO11820WinForms.Forms
                 _seriesTC = new LineSeries
                 {
                     Title = "TC(中心温度)",
-                    Color = OxyColor.FromRgb(244, 191, 76),
-                    StrokeThickness = 2.8,
+                    Color = OxyColor.FromRgb(154, 115, 53),
+                    StrokeThickness = 2.0,
                     MarkerType = MarkerType.None,
                     LineStyle = LineStyle.Solid
                 };
@@ -1465,7 +3313,7 @@ namespace ISO11820WinForms.Forms
                 {
                     Model = _chartModel,
                     Dock = DockStyle.Fill,
-                    BackColor = UiTheme.SurfaceRaised
+                    BackColor = UiTheme.Surface
                 };
 
                 // 添加到chartPanel
@@ -1702,7 +3550,7 @@ namespace ISO11820WinForms.Forms
                 var colTempDrift = new DataGridViewTextBoxColumn
                 {
                     Name = "TempDrift",
-                    HeaderText = "温度漂移(℃)",
+                    HeaderText = $"温度漂移({TestMaster.TemperatureDriftUnitText})",
                     DataPropertyName = "TempDrift",
                     Width = 150,
                     DefaultCellStyle = new DataGridViewCellStyle
@@ -1734,6 +3582,9 @@ namespace ISO11820WinForms.Forms
                 {
                     dgvSystemMessage.FirstDisplayedScrollingRowIndex = 0;
                 }
+
+                UpdateMessageTableMeta();
+                UpdateRecentStatusEvents();
             }
             catch (Exception ex)
             {
@@ -1768,6 +3619,8 @@ namespace ISO11820WinForms.Forms
                 {
                     dgvRealTimeData.FirstDisplayedScrollingRowIndex = 0;
                 }
+
+                UpdateMessageTableMeta();
             }
             catch (Exception ex)
             {
@@ -1784,6 +3637,7 @@ namespace ISO11820WinForms.Forms
             ApplyMessageToggleButtonState();
             dgvSystemMessage.Visible = true;
             dgvRealTimeData.Visible = false;
+            UpdateMessageTableMeta();
         }
 
         /*
@@ -1795,6 +3649,51 @@ namespace ISO11820WinForms.Forms
             ApplyMessageToggleButtonState();
             dgvRealTimeData.Visible = true;
             dgvSystemMessage.Visible = false;
+            UpdateMessageTableMeta();
+        }
+
+        private void UpdateMessageTableMeta()
+        {
+            if (_lblMessageRowCount != null)
+            {
+                var rows = _showSystemMessages ? dgvSystemMessage.Rows.Count : dgvRealTimeData.Rows.Count;
+                _lblMessageRowCount.Text = $"最近 {rows} 条";
+            }
+
+            if (_lblMessageRefresh != null)
+            {
+                _lblMessageRefresh.Text = _showSystemMessages ? "系统消息" : "刷新 0.8s";
+            }
+        }
+
+        private void UpdateRecentStatusEvents()
+        {
+            if (_recentStatusTimeLabels == null || _recentStatusMessageLabels == null)
+            {
+                return;
+            }
+
+            if (dgvSystemMessage == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < _recentStatusTimeLabels.Length; i++)
+            {
+                var hasRow = i < dgvSystemMessage.Rows.Count;
+                var time = hasRow ? dgvSystemMessage.Rows[i].Cells["Time"].Value?.ToString() : "--:--:--";
+                var message = hasRow ? dgvSystemMessage.Rows[i].Cells["Content"].Value?.ToString() : "暂无状态";
+
+                if (_recentStatusTimeLabels[i] != null)
+                {
+                    _recentStatusTimeLabels[i]!.Text = time ?? "--:--:--";
+                }
+
+                if (_recentStatusMessageLabels[i] != null)
+                {
+                    _recentStatusMessageLabels[i]!.Text = message ?? "暂无状态";
+                }
+            }
         }
 
         /*
@@ -1806,6 +3705,8 @@ namespace ISO11820WinForms.Forms
             {
                 dgvSystemMessage.Rows.Clear();
                 dgvRealTimeData.Rows.Clear();
+                UpdateMessageTableMeta();
+                UpdateRecentStatusEvents();
             }
             catch (Exception ex)
             {
