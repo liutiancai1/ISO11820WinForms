@@ -73,6 +73,11 @@ namespace ISO11820WinForms.Core
      */
     public class TestMaster : ITestMaster
     {
+        protected const int DriftWindowSampleCount = 600;
+        protected const double DriftWindowDurationSeconds = DriftWindowSampleCount - 1;
+        protected const double MaxTemperatureDriftPerTenMinutes = 2.0;
+        public const string TemperatureDriftUnitText = "℃/10min";
+
         /* ====================== 事件定义 ================== */
         
         /// <summary>
@@ -146,6 +151,7 @@ namespace ISO11820WinForms.Core
         /* 本次试验的产品数据及试样数据缓存 */
         protected Productmaster? _productMaster;
         protected Testmaster? _testmaster;
+        public ReportResult? LastPostTestReportResult { get; private set; }
 
         /* [Recording]状态 与 [Preparing]状态 与 [Ready]状态 共通数据结构 */
         //传感器采集数据缓存
@@ -156,6 +162,7 @@ namespace ISO11820WinForms.Core
         protected Queue<double> xData10Min;   //试验计时缓存队列
         protected Queue<double> y1Data10Min;  //炉内温度1缓存队列
         protected Queue<double> y2Data10Min;  //炉内温度2缓存队列
+        protected bool _hasValidDrift10Min;
 
         /* [Preparing]状态与[Ready]状态所需数据结构 */
         // 用于计算试验开始条件的数据缓存: 10Min内温度范围是否稳定(750℃±5)
@@ -183,12 +190,13 @@ namespace ISO11820WinForms.Core
             _iFlameDurTime = 0;
 
             //初始化用于漂移计算的时间序列
-            for (int i = 0; i < 600; i++)
+            for (int i = 0; i < DriftWindowSampleCount; i++)
             {
                 xData10Min.Enqueue(i);
             }
             y1Data10Min = new Queue<double>();
             y2Data10Min = new Queue<double>();
+            _hasValidDrift10Min = false;
             //初始化读秒器
             _iCntStable = 0;
             _iCntDeviation = 0;
@@ -296,7 +304,7 @@ namespace ISO11820WinForms.Core
         /* ====================== 实现试验控制器通用接口方法 ================== */
 
         /* 控制器初始化函数 */
-        public void OnInitialized()
+        public bool OnInitialized()
         {
              Console.WriteLine("连接PID温度控制器");
             //连接PID控温器
@@ -305,7 +313,10 @@ namespace ISO11820WinForms.Core
                 //启动试验控制器并设置状态为[Idle]           
                 Status = MasterStatus.Idle;
                 _timer?.Change(0, 1000);
+                return true;
             }
+
+            return false;
         }
 
         /* 控制器工作函数 */
@@ -318,17 +329,24 @@ namespace ISO11820WinForms.Core
         */
         protected void CaculateDrift10Min()
         {
+            if (y1Data10Min.Count < DriftWindowSampleCount || y2Data10Min.Count < DriftWindowSampleCount)
+            {
+                _hasValidDrift10Min = false;
+                return;
+            }
+
             double[] xArray = xData10Min.ToArray();   //时间数据序列
             double[] y1Array = y1Data10Min.ToArray(); //炉内温度1数据序列
             double[] y2Array = y2Data10Min.ToArray(); //炉内温度2数据序列
             //拟合曲线,取得斜率与截距
             (_, double slope1) = Fit.Line(xArray, y1Array); //炉内温度1拟合曲线参数
             (_, double slope2) = Fit.Line(xArray, y2Array); //炉内温度2拟合曲线参数
-            //计算温度漂移值
-            _caculateDataCatch.Temp1Drift10Min = Math.Abs(slope1 * 599);
-            _caculateDataCatch.Temp2Drift10Min = Math.Abs(slope2 * 599);
+            //计算温度漂移值，单位：℃/10min
+            _caculateDataCatch.Temp1Drift10Min = Math.Abs(slope1 * DriftWindowDurationSeconds);
+            _caculateDataCatch.Temp2Drift10Min = Math.Abs(slope2 * DriftWindowDurationSeconds);
             _caculateDataCatch.TempDriftMean =
                 (_caculateDataCatch.Temp1Drift10Min + _caculateDataCatch.Temp2Drift10Min) / 2;
+            _hasValidDrift10Min = true;
         }
 
         /*
@@ -354,10 +372,11 @@ namespace ISO11820WinForms.Core
          *       1.设置当前试验使用的恒功率值为: PID温度控制器连续10分钟的输出值的平均值
          *       2.向试验设备控制器发送指令,切换加热方式为手动控制方式
          */
-        public bool StartRecording()
+        public virtual bool StartRecording()
         {
             /* 开始样品试验前的初始化工作 */
-            if (_apparatusManipulator.SetOutputPower(Convert.ToUInt16(queuePidOutput.Average()))
+            var averageOutput = queuePidOutput.Count > 0 ? queuePidOutput.Average() : 0;
+            if (_apparatusManipulator.SetOutputPower(Convert.ToUInt16(averageOutput))
                 && _apparatusManipulator.SwitchToManual())
             {
                 //重置计时器
@@ -369,7 +388,7 @@ namespace ISO11820WinForms.Core
             return false;
         }
 
-        public bool StopRecording()
+        public virtual bool StopRecording()
         {
             //向试验设备控制器发送指令,切换加热方式为PID控温            
             if (_apparatusManipulator.SwitchToPID())
@@ -428,6 +447,16 @@ namespace ISO11820WinForms.Core
         public virtual void SetTestData(Testmaster testmaster)
         {
             _testmaster = testmaster;
+            LastPostTestReportResult = null;
+        }
+
+        public bool HasActiveTest => _testmaster != null;
+
+        public bool HasActiveProduct => _productMaster != null;
+
+        public Testmaster? GetActiveTestOrNull()
+        {
+            return _testmaster;
         }
 
         public virtual Testmaster GetTestData()
@@ -438,6 +467,12 @@ namespace ISO11820WinForms.Core
         public virtual void ResetTestData()
         {
             _testmaster = null;
+            LastPostTestReportResult = null;
+        }
+
+        protected void PublishPostTestReportResult(ReportResult? result)
+        {
+            LastPostTestReportResult = result;
         }
 
         public void SetPhenomenon(string phenocode, string memo)
@@ -456,7 +491,7 @@ namespace ISO11820WinForms.Core
             double max1, max2, average1, average2;
             /* 计算是否达到试验初始条件 */
             //10分钟后,漂移值缓存满,开始计算漂移值
-            if (y1Data10Min.Count >= 600)
+            if (y1Data10Min.Count >= DriftWindowSampleCount && _hasValidDrift10Min)
             {
                 //计算温度范围条件
                 temp1 = (int)(_sensorDataCatch.Temp1 * 10);
@@ -470,8 +505,8 @@ namespace ISO11820WinForms.Core
                     _iCntStable = 600;
                 }
                 //计算温度漂移条件
-                if ((int)(_caculateDataCatch.Temp1Drift10Min * 10) <= 20
-                    && (int)(_caculateDataCatch.Temp2Drift10Min * 10) <= 20)
+                if (_caculateDataCatch.Temp1Drift10Min <= MaxTemperatureDriftPerTenMinutes
+                    && _caculateDataCatch.Temp2Drift10Min <= MaxTemperatureDriftPerTenMinutes)
                 {
                     if (_iCntDrift > 0) _iCntDrift--;
                 }
@@ -505,8 +540,9 @@ namespace ISO11820WinForms.Core
         public virtual bool CheckTerminateCriteria()
         {
             //判断试验终止条件是否满足 
-            return ((int)(_caculateDataCatch.Temp1Drift10Min * 10) <= 20 &&
-                 (int)(_caculateDataCatch.Temp2Drift10Min * 10) <= 20) ? true : false;
+            return _hasValidDrift10Min
+                && _caculateDataCatch.Temp1Drift10Min <= MaxTemperatureDriftPerTenMinutes
+                && _caculateDataCatch.Temp2Drift10Min <= MaxTemperatureDriftPerTenMinutes;
         }
 
         /*
@@ -516,23 +552,26 @@ namespace ISO11820WinForms.Core
         public virtual async Task PostTestProcess()
         {
             /* 创建本地存储目录 */
-            string prodpath = $"D:\\ISO11820\\{_testmaster!.Productid}";
-            string smppath = $"{prodpath}\\{_testmaster.Testid}";
-            string datapath = $"{smppath}\\data";
-            string rptpath = $"{smppath}\\report";
+            if (_testmaster == null)
+            {
+                throw new InvalidOperationException("Testmaster 未设置，无法执行试验后处理。");
+            }
             try
             {
                 /* 创建本次试验结果文件的存储目录 */
-                Directory.CreateDirectory(prodpath);
-                Directory.CreateDirectory(smppath);
-                Directory.CreateDirectory(datapath);
-                Directory.CreateDirectory(rptpath);
 
                 /* Requirement 8.1: 使用CsvDataService保存本次试验数据文件 */
                 var csvService = new ISO11820WinForms.Services.CsvDataService();
                 var csvFilePath = ISO11820WinForms.Services.CsvDataService.GetSensorDataFilePath(
                     _testmaster.Productid, _testmaster.Testid);
+                var csvDirectory = Path.GetDirectoryName(csvFilePath);
+                if (!string.IsNullOrWhiteSpace(csvDirectory))
+                {
+                    Directory.CreateDirectory(csvDirectory);
+                }
                 await csvService.SerializeAsync(_bufSensorData, csvFilePath);
+
+                ApplyDerivedTestResults();
 
                 // 更新本次试验数据至试验数据库（记录已在新建试验时创建）
                 using (var ctx = new ISO11820DbContext())
@@ -551,7 +590,27 @@ namespace ISO11820WinForms.Core
                         existingTest.Totaltesttime = _testmaster.Totaltesttime;
                         existingTest.Maxtf1 = _testmaster.Maxtf1;
                         existingTest.Maxtf1Time = _testmaster.Maxtf1Time;
+                        existingTest.Maxtf2 = _testmaster.Maxtf2;
+                        existingTest.Maxtf2Time = _testmaster.Maxtf2Time;
+                        existingTest.Maxts = _testmaster.Maxts;
+                        existingTest.MaxtsTime = _testmaster.MaxtsTime;
+                        existingTest.Maxtc = _testmaster.Maxtc;
+                        existingTest.MaxtcTime = _testmaster.MaxtcTime;
                         existingTest.Finaltf1 = _testmaster.Finaltf1;
+                        existingTest.Finaltf1Time = _testmaster.Finaltf1Time;
+                        existingTest.Finaltf2 = _testmaster.Finaltf2;
+                        existingTest.Finaltf2Time = _testmaster.Finaltf2Time;
+                        existingTest.Finalts = _testmaster.Finalts;
+                        existingTest.FinaltsTime = _testmaster.FinaltsTime;
+                        existingTest.Finaltc = _testmaster.Finaltc;
+                        existingTest.FinaltcTime = _testmaster.FinaltcTime;
+                        existingTest.Deltatf1 = _testmaster.Deltatf1;
+                        existingTest.Deltatf2 = _testmaster.Deltatf2;
+                        existingTest.Deltats = _testmaster.Deltats;
+                        existingTest.Deltatf = _testmaster.Deltatf;
+                        existingTest.Deltatc = _testmaster.Deltatc;
+                        existingTest.Lostweight = _testmaster.Lostweight;
+                        existingTest.LostweightPer = _testmaster.LostweightPer;
                         existingTest.Flag = "10000000"; // 标记试验已完成
                         await ctx.SaveChangesAsync();
                     }
@@ -563,20 +622,9 @@ namespace ISO11820WinForms.Core
                     }
                 }
 
-                // 在后台线程生成报告（不阻塞主流程）
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        await GenerateTestReportAsync(_testmaster.Productid, _testmaster.Testid);
-                    }
-                    catch (Exception ex)
-                    {
-                        // 记录错误但不影响试验数据保存
-                        Serilog.Log.Error(ex, "生成试验报告失败: ProductId={ProductId}, TestId={TestId}", 
-                            _testmaster.Productid, _testmaster.Testid);
-                    }
-                });
+                var productId = _testmaster.Productid;
+                var testId = _testmaster.Testid;
+                PublishPostTestReportResult(await GenerateTestReportAsync(productId, testId));
             }
             catch (Exception)
             {
@@ -584,13 +632,68 @@ namespace ISO11820WinForms.Core
             }
         }
 
+        protected void ApplyDerivedTestResults()
+        {
+            if (_testmaster == null || _bufSensorData.Count == 0)
+            {
+                return;
+            }
+
+            var maxTf1 = _bufSensorData.OrderByDescending(x => x.Temp1).First();
+            var maxTf2 = _bufSensorData.OrderByDescending(x => x.Temp2).First();
+            var maxTs = _bufSensorData.OrderByDescending(x => x.TempSuf).First();
+            var maxTc = _bufSensorData.OrderByDescending(x => x.TempCen).First();
+            var final = _bufSensorData.OrderBy(x => x.Timer).Last();
+
+            _testmaster.Maxtf1 = maxTf1.Temp1;
+            _testmaster.Maxtf1Time = maxTf1.Timer;
+            _testmaster.Maxtf2 = maxTf2.Temp2;
+            _testmaster.Maxtf2Time = maxTf2.Timer;
+            _testmaster.Maxts = maxTs.TempSuf;
+            _testmaster.MaxtsTime = maxTs.Timer;
+            _testmaster.Maxtc = maxTc.TempCen;
+            _testmaster.MaxtcTime = maxTc.Timer;
+
+            _testmaster.Finaltf1 = final.Temp1;
+            _testmaster.Finaltf1Time = final.Timer;
+            _testmaster.Finaltf2 = final.Temp2;
+            _testmaster.Finaltf2Time = final.Timer;
+            _testmaster.Finalts = final.TempSuf;
+            _testmaster.FinaltsTime = final.Timer;
+            _testmaster.Finaltc = final.TempCen;
+            _testmaster.FinaltcTime = final.Timer;
+
+            _testmaster.Deltatf1 = _testmaster.Finaltf1 - _testmaster.Ambtemp;
+            _testmaster.Deltatf2 = _testmaster.Finaltf2 - _testmaster.Ambtemp;
+            _testmaster.Deltats = _testmaster.Finalts - _testmaster.Ambtemp;
+            _testmaster.Deltatf = _testmaster.Deltats;
+            _testmaster.Deltatc = _testmaster.Finaltc - _testmaster.Ambtemp;
+
+            _testmaster.Lostweight = _testmaster.Preweight - _testmaster.Postweight;
+            _testmaster.LostweightPer = _testmaster.Preweight > 0
+                ? _testmaster.Lostweight / _testmaster.Preweight * 100
+                : 0;
+
+            if (_testmaster.Totaltesttime <= 0)
+            {
+                _testmaster.Totaltesttime = final.Timer;
+            }
+
+            _testmaster.Flag = "10000000";
+        }
+
         /// <summary>
         /// 生成试验报告（在后台线程执行）
         /// </summary>
-        private async Task GenerateTestReportAsync(string productId, string testId)
+        private async Task<ReportResult> GenerateTestReportAsync(string productId, string testId)
         {
             try
             {
+                if (LastPostTestReportResult != null)
+                {
+                    return LastPostTestReportResult;
+                }
+
                 // 获取配置服务
                 var configService = ISO11820WinForms.Services.ConfigurationService.Instance;
                 var reportConfig = configService.ReportConfig;
@@ -618,11 +721,17 @@ namespace ISO11820WinForms.Core
                 {
                     logger.Warning("试验报告生成失败: {ErrorMessage}", result.ErrorMessage);
                 }
+
+                return result;
             }
             catch (Exception ex)
             {
                 Serilog.Log.Error(ex, "生成试验报告时发生异常");
-                throw;
+                return new ReportResult
+                {
+                    Success = false,
+                    ErrorMessage = ex.Message
+                };
             }
         }
 
@@ -671,6 +780,7 @@ namespace ISO11820WinForms.Core
                         apparatus.Checkdatef = checkDateFrom;
                         apparatus.Checkdatet = checkDateTo;
                         apparatus.Pidport = pidPort;
+                        apparatus.Powerport = pidPort;
                         apparatus.Constpower = constPower;
 
                         // 保存更改
@@ -693,7 +803,7 @@ namespace ISO11820WinForms.Core
                             Checkdatet = checkDateTo,
                             Pidport = pidPort,
                             Constpower = constPower,
-                            Powerport = "COM2"  // 默认值
+                            Powerport = pidPort
                         };
                         ctx.Apparatuses.Add(newApparatus);
                         await ctx.SaveChangesAsync();

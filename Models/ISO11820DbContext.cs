@@ -31,9 +31,7 @@ namespace ISO11820WinForms.Models
         {
             if (!optionsBuilder.IsConfigured)
             {
-                // 从配置文件读取连接字符串
-                string connectionString = ConfigurationHelper.GetConnectionString("ISO11820");
-                optionsBuilder.UseSqlServer(connectionString);
+                optionsBuilder.UseSqlite(ConfigurationHelper.GetConnectionString("ISO11820"));
             }
         }
 

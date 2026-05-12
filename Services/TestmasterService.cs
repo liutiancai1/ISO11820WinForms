@@ -32,10 +32,7 @@ namespace ISO11820WinForms.Services
                 {
                     using (var context = new ISO11820DbContext())
                     {
-                        // 步顷1：先关联到TestMaster内存缓存（参考Web版第316行）
-                        AssociateToTestMaster(productData, testData);
-
-                        // 步骤2：检查产品是否首次创建（参考Web版第320-324行）
+                        // 步骤1：检查产品是否首次创建（参考Web版第320-324行）
                         // 性能优化：使用异步方法
                         if (!await context.Productmasters.AnyAsync(prod => prod.Productid == productData.Productid))
                         {
@@ -43,13 +40,16 @@ namespace ISO11820WinForms.Services
                             await context.SaveChangesAsync();
                         }
 
-                        // 步骤3：检查试验编号是否重复（参考Web版第326行）
+                        // 步骤2：检查试验编号是否重复（参考Web版第326行）
                         // 性能优化：使用异步方法
                         if (!await context.Testmasters.AnyAsync(test => test.Productid == productData.Productid && test.Testid == testData.Testid))
                         {
                             // 试验编号没有重复，添加试验记录到数据库
                             context.Testmasters.Add(testData);
                             await context.SaveChangesAsync();
+
+                            // 步骤3：数据库创建成功后再关联到TestMaster内存缓存
+                            AssociateToTestMaster(productData, testData);
                             
                             // 创建成功
                             string successMsg = $"创建新试验成功。样品编号: [ {testData.Productid} ], 样品标识: [ {testData.Testid} ]";

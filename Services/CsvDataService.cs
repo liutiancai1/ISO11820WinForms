@@ -3,6 +3,7 @@ using System.Text;
 using CsvHelper;
 using CsvHelper.Configuration;
 using ISO11820WinForms.Core;
+using ISO11820WinForms.Utilities;
 using Serilog;
 
 namespace ISO11820WinForms.Services
@@ -210,7 +211,7 @@ namespace ISO11820WinForms.Services
         /// <returns>CSV文件路径</returns>
         public static string GetSensorDataFilePath(string productId, string testId)
         {
-            return $"D:\\ISO11820\\{productId}\\{testId}\\data\\sensordata.csv";
+            return TestDataPathHelper.GetSensorDataFilePath(productId, testId);
         }
     }
 

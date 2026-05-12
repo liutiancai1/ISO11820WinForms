@@ -1,7 +1,7 @@
 namespace TestServer.Models
 {
     /// <summary>
-    /// 试验报告文件路径（用于序列化到 Testmaster.Memo 字段）
+    /// 试验报告相关文件路径
     /// </summary>
     public class TestReportPaths
     {
@@ -14,6 +14,8 @@ namespace TestServer.Models
         /// PDF 报告路径
         /// </summary>
         public string? PdfReportPath { get; set; }
+
+        public string? TestPackagePath { get; set; }
 
         /// <summary>
         /// 火焰视频路径

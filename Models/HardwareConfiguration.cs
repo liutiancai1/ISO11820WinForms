@@ -29,5 +29,19 @@ namespace ISO11820WinForms.Models
         /// PID控制目标温度（°C）
         /// </summary>
         public short PidTemperature { get; set; } = 750;
+
+        public string SensorProtocol { get; set; } = "ModbusRtu";
+
+        public int SensorStationNumber { get; set; } = 1;
+
+        public int PidStationNumber { get; set; } = 2;
+
+        public int SensorRegisterStartAddress { get; set; } = 1;
+
+        public int SensorRegisterCount { get; set; } = 8;
+
+        public int SensorReadTimeoutMs { get; set; } = 1000;
+
+        public int CalibrationChannelIndex { get; set; } = 4;
     }
 }

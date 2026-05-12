@@ -2,6 +2,7 @@ using ISO11820_2020.Models;
 using ISO11820WinForms.Global;
 using ISO11820WinForms.Models;
 using ISO11820WinForms.Services;
+using ISO11820WinForms.Utilities;
 using TestServer.Models;
 using System;
 using System.Collections.Generic;
@@ -53,6 +54,7 @@ namespace ISO11820WinForms.Core
         /// 获取设备操作器（用于访问 Modbus 温度等）
         /// </summary>
         public ApparatusManipulator Manipulator => _apparatusManipulator;
+        public bool IsFlameDetectionEnabled => false;
         /// <summary>
         /// 初始化火焰分析器
         /// Requirement 2.3, 2.5: 初始化FlameAnalyzer并订阅FlameDetected事件
@@ -66,24 +68,20 @@ namespace ISO11820WinForms.Core
             {
                 _flameAnalyzer.FlameDetected -= OnFlameAnalyzerFlameDetected;
                 _flameAnalyzer.Dispose();
+                _flameAnalyzer = null;
             }
 
             // 创建新的火焰分析器
-            _flameAnalyzer = new FlameAnalyzer(MasterId, videoUrl);
+            Serilog.Log.Information(
+                "当前版本未启用火焰自动检测，忽略 InitializeFlameAnalyzer 调用: MasterId={MasterId}, VideoUrl={VideoUrl}",
+                MasterId,
+                videoUrl);
 
             // 加载ROI坐标（如果提供）
-            if (!string.IsNullOrEmpty(roiFilePath) && File.Exists(roiFilePath))
-            {
-                _flameAnalyzer.LoadROI(roiFilePath);
-                _flameAnalyzer.SetMask();
-            }
 
             // 订阅火焰检测事件
             // Requirement 2.3: 订阅FlameDetected事件
-            _flameAnalyzer.FlameDetected += OnFlameAnalyzerFlameDetected;
 
-            Serilog.Log.Information("火焰分析器初始化完成: MasterId={MasterId}, VideoUrl={VideoUrl}", 
-                MasterId, videoUrl);
         }
 
         /// <summary>
@@ -102,14 +100,13 @@ namespace ISO11820WinForms.Core
         /// </summary>
         /// <param name="outputPath">输出文件路径</param>
         /// <returns>是否成功输出</returns>
-        public async Task<bool> OutputFlameVideoAsync(string outputPath)
+        public Task<bool> OutputFlameVideoAsync(string outputPath)
         {
-            if (_flameAnalyzer == null)
-            {
-                return false;
-            }
-
-            return await _flameAnalyzer.OutputFlameFramesAsync(outputPath);
+            Serilog.Log.Information(
+                "当前版本未启用火焰自动检测，忽略火焰视频导出: MasterId={MasterId}, OutputPath={OutputPath}",
+                MasterId,
+                outputPath);
+            return Task.FromResult(false);
         }
 
         /// <summary>
@@ -132,15 +129,10 @@ namespace ISO11820WinForms.Core
                 return;
             }
 
-            // 真实硬件模式：从传感器字典获取表面温度和中心温度
-            if (_sensors.Sensors.ContainsKey(0))
-            {
-                _sensorDataCatch.TempSuf = _sensors.Sensors[0].Outputvalue;
-            }
-            if (_sensors.Sensors.ContainsKey(1))
-            {
-                _sensorDataCatch.TempCen = _sensors.Sensors[1].Outputvalue;
-            }
+            // 真实硬件模式：从统一的传感器通道映射获取表面温度和中心温度
+            var (surfaceTemp, centerTemp) = SensorChannelHelper.GetSurfaceAndCenterTemperatures(_sensors.Sensors);
+            _sensorDataCatch.TempSuf = surfaceTemp;
+            _sensorDataCatch.TempCen = centerTemp;
         }
 
 
@@ -160,11 +152,15 @@ namespace ISO11820WinForms.Core
             // 调整10分钟缓存数据（用于漂移计算）
             y1Data10Min.Enqueue(_sensorDataCatch.Temp1);
             y2Data10Min.Enqueue(_sensorDataCatch.Temp2);
-            if (y1Data10Min.Count == 601)
+            if (y1Data10Min.Count > DriftWindowSampleCount)
             {
                 y1Data10Min.Dequeue();
                 y2Data10Min.Dequeue();
-                // 刷新计算数据最新值
+            }
+
+            if (y1Data10Min.Count == DriftWindowSampleCount && y2Data10Min.Count == DriftWindowSampleCount)
+            {
+                // 刷新计算数据最新值，单位：℃/10min
                 CaculateDrift10Min();
             }
 
@@ -314,56 +310,7 @@ namespace ISO11820WinForms.Core
                 return false;
             }
             
-            // ========== 【测试模式修改】==========
-            // 原代码：return base.CheckStartCriteria(); 
-            // 原逻辑需要等待10分钟收集600个数据点
-            // 修改为：简化条件检查，只需温度稳定10秒即可
-            // 部署时请改回: return base.CheckStartCriteria();
-            // =====================================
-            return CheckStartCriteriaForTesting();
-        }
-
-        /// <summary>
-        /// 【测试用】简化的试验开始条件检查
-        /// 只需温度在目标范围内稳定10秒即可
-        /// 部署时请删除此方法，使用 base.CheckStartCriteria()
-        /// </summary>
-        private int _testStableCounter = 0;  // 测试用稳定计数器
-        private const int TEST_STABLE_SECONDS = 10;  // 测试用：只需稳定10秒
-        
-        private bool CheckStartCriteriaForTesting()
-        {
-            double temp1 = _sensorDataCatch.Temp1;
-            double temp2 = _sensorDataCatch.Temp2;
-            
-            // 检查温度是否在 745-755°C 范围内
-            bool tempInRange = temp1 >= 745 && temp1 <= 755 && temp2 >= 745 && temp2 <= 755;
-            
-            if (tempInRange)
-            {
-                _testStableCounter++;
-                Serilog.Log.Debug("[测试模式] 温度稳定计数: {Count}/{Target}, Temp1={Temp1}°C, Temp2={Temp2}°C", 
-                    _testStableCounter, TEST_STABLE_SECONDS, temp1, temp2);
-                
-                if (_testStableCounter >= TEST_STABLE_SECONDS)
-                {
-                    Serilog.Log.Information("[测试模式] 试验开始条件满足: 温度={Temp1}°C, 稳定时间={Seconds}秒", 
-                        temp1, _testStableCounter);
-                    return true;
-                }
-            }
-            else
-            {
-                // 温度超出范围，重置计数器
-                if (_testStableCounter > 0)
-                {
-                    Serilog.Log.Debug("[测试模式] 温度超出范围，重置稳定计数器: Temp1={Temp1}°C, Temp2={Temp2}°C", 
-                        temp1, temp2);
-                }
-                _testStableCounter = 0;
-            }
-            
-            return false;
+            return base.CheckStartCriteria();
         }
 
         /// <summary>
@@ -410,18 +357,32 @@ namespace ISO11820WinForms.Core
                 OnFlameDetected(_iFlameTime, _iFlameDurTime);
             }
 
-            // Requirement 7.5: 计时到达60分钟，无条件终止本次试验
-            if (Timer == 3600)
+            if (_testmaster?.UseFixedDuration == true)
             {
-                CompleteTest(3600, messages, "本次试验已完成（达到60分钟上限）。");
-            }
-            // 在试验标准要求的时间点判断是否满足试验终止条件
-            else if (Timer == 1800 || Timer == 2100 || Timer == 2400
-                || Timer == 2700 || Timer == 3000 || Timer == 3300)
-            {
-                if (CheckTerminateCriteria())
+                int targetDurationSeconds = _testmaster.TargetDurationSeconds > 0
+                    ? _testmaster.TargetDurationSeconds
+                    : 3600;
+
+                if (Timer >= targetDurationSeconds)
                 {
-                    CompleteTest(Timer, messages, "本次试验已完成（满足终止条件）。");
+                    CompleteTest(targetDurationSeconds);
+                }
+            }
+            else
+            {
+                // Requirement 7.5: 计时到达60分钟，无条件终止本次试验
+                if (Timer == 3600)
+                {
+                    CompleteTest(3600);
+                }
+                // 在试验标准要求的时间点判断是否满足试验终止条件
+                else if (Timer == 1800 || Timer == 2100 || Timer == 2400
+                    || Timer == 2700 || Timer == 3000 || Timer == 3300)
+                {
+                    if (CheckTerminateCriteria())
+                    {
+                        CompleteTest(Timer);
+                    }
                 }
             }
 
@@ -433,9 +394,7 @@ namespace ISO11820WinForms.Core
         /// 完成试验并更新状态
         /// </summary>
         /// <param name="totalTime">试验总时长</param>
-        /// <param name="messages">消息列表</param>
-        /// <param name="message">完成消息</param>
-        private void CompleteTest(int totalTime, List<MasterMessage> messages, string message)
+        private void CompleteTest(int totalTime)
         {
             if (_testmaster != null)
             {
@@ -445,12 +404,6 @@ namespace ISO11820WinForms.Core
             // 更新控制器状态
             Status = MasterStatus.Complete;
 
-            // 添加完成消息
-            messages.Add(new MasterMessage()
-            {
-                Time = DateTime.Now.ToString("HH:mm:ss"),
-                Message = message
-            });
         }
 
 
@@ -474,8 +427,6 @@ namespace ISO11820WinForms.Core
             // 切换加热方式为PID控温
             _apparatusManipulator.SwitchToPID();
 
-            // 停止火焰检测
-            _flameAnalyzer?.StopAnalyzing();
         }
 
         #region PID队列管理和恒功率值计算
@@ -546,7 +497,7 @@ namespace ISO11820WinForms.Core
         /// Requirement 6.3: 将恒功率值发送到设备控制器并切换到手动控制模式
         /// </summary>
         /// <returns>是否成功开始记录</returns>
-        public new bool StartRecording()
+        public override bool StartRecording()
         {
             // Requirement 6.2: 计算恒功率值
             int constantPower = CalculateConstantPower();
@@ -564,9 +515,7 @@ namespace ISO11820WinForms.Core
                 // 重置火焰检测状态
                 _bFlameDetected = false;
                 _iFlameDurTime = 0;
-
-                // 启动火焰检测（如果已初始化）
-                _flameAnalyzer?.StartAnalyzing();
+                _simulator?.StartRecording(Timer);
 
                 // 修改试验控制器状态为Recording
                 Status = MasterStatus.Recording;
@@ -583,29 +532,9 @@ namespace ISO11820WinForms.Core
         /// Requirement 2.4: 试验记录停止时将火焰视频帧输出到文件
         /// </summary>
         /// <returns>是否成功停止记录</returns>
-        public new bool StopRecording()
+        public override bool StopRecording()
         {
-            // 停止火焰检测
-            // Requirement 2.3: 在Recording状态停止火焰检测
-            _flameAnalyzer?.StopAnalyzing();
-
-            // Requirement 2.4: 如果检测到火焰，输出火焰视频
-            if (_bFlameDetected && _flameAnalyzer != null && _testmaster != null)
-            {
-                // 在后台线程输出火焰视频（不阻塞主流程）
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                        string videoPath = $"D:\\ISO11820\\{_testmaster.Productid}\\{_testmaster.Testid}\\data\\flame.avi";
-                        await _flameAnalyzer.OutputFlameFramesAsync(videoPath);
-                    }
-                    catch (Exception ex)
-                    {
-                        Serilog.Log.Error(ex, "输出火焰视频失败");
-                    }
-                });
-            }
+            _simulator?.StopRecording();
 
             // Requirement 6.4: 切换加热方式为PID控温
             if (_apparatusManipulator.SwitchToPID())

@@ -34,6 +34,10 @@
             label2 = new Label();
             label1 = new Label();
             groupBox2 = new GroupBox();
+            textBoxDurationMinutes = new TextBox();
+            comboBoxTestMode = new ComboBox();
+            label18 = new Label();
+            label17 = new Label();
             dateTimePicker1 = new DateTimePicker();
             textBox13 = new TextBox();
             textBox12 = new TextBox();
@@ -126,6 +130,10 @@
             // 
             // groupBox2
             // 
+            groupBox2.Controls.Add(textBoxDurationMinutes);
+            groupBox2.Controls.Add(comboBoxTestMode);
+            groupBox2.Controls.Add(label18);
+            groupBox2.Controls.Add(label17);
             groupBox2.Controls.Add(dateTimePicker1);
             groupBox2.Controls.Add(textBox13);
             groupBox2.Controls.Add(textBox12);
@@ -134,10 +142,45 @@
             groupBox2.Controls.Add(label3);
             groupBox2.Location = new Point(581, 18);
             groupBox2.Name = "groupBox2";
-            groupBox2.Size = new Size(370, 167);
+            groupBox2.Size = new Size(370, 207);
             groupBox2.TabIndex = 1;
             groupBox2.TabStop = false;
             groupBox2.Text = "试验信息";
+            // 
+            // textBoxDurationMinutes
+            // 
+            textBoxDurationMinutes.Location = new Point(130, 170);
+            textBoxDurationMinutes.Name = "textBoxDurationMinutes";
+            textBoxDurationMinutes.Size = new Size(211, 27);
+            textBoxDurationMinutes.TabIndex = 14;
+            textBoxDurationMinutes.Text = "60";
+            // 
+            // comboBoxTestMode
+            // 
+            comboBoxTestMode.DropDownStyle = ComboBoxStyle.DropDownList;
+            comboBoxTestMode.FormattingEnabled = true;
+            comboBoxTestMode.Location = new Point(130, 143);
+            comboBoxTestMode.Name = "comboBoxTestMode";
+            comboBoxTestMode.Size = new Size(211, 28);
+            comboBoxTestMode.TabIndex = 13;
+            // 
+            // label18
+            // 
+            label18.AutoSize = true;
+            label18.Location = new Point(20, 173);
+            label18.Name = "label18";
+            label18.Size = new Size(104, 20);
+            label18.TabIndex = 12;
+            label18.Text = "试验时长(分)：";
+            // 
+            // label17
+            // 
+            label17.AutoSize = true;
+            label17.Location = new Point(40, 146);
+            label17.Name = "label17";
+            label17.Size = new Size(84, 20);
+            label17.TabIndex = 11;
+            label17.Text = "试验模式：";
             // 
             // dateTimePicker1
             // 
@@ -335,7 +378,7 @@
             groupBox4.Controls.Add(label14);
             groupBox4.Controls.Add(label13);
             groupBox4.Controls.Add(label12);
-            groupBox4.Location = new Point(581, 219);
+            groupBox4.Location = new Point(581, 238);
             groupBox4.Name = "groupBox4";
             groupBox4.Size = new Size(370, 182);
             groupBox4.TabIndex = 3;
@@ -415,7 +458,7 @@
             // 
             // button1
             // 
-            button1.Location = new Point(757, 414);
+            button1.Location = new Point(757, 433);
             button1.Name = "button1";
             button1.Size = new Size(94, 38);
             button1.TabIndex = 4;
@@ -424,7 +467,7 @@
             // 
             // button2
             // 
-            button2.Location = new Point(857, 414);
+            button2.Location = new Point(857, 433);
             button2.Name = "button2";
             button2.Size = new Size(94, 38);
             button2.TabIndex = 5;
@@ -452,7 +495,7 @@
             // 
             AutoScaleDimensions = new SizeF(9F, 20F);
             AutoScaleMode = AutoScaleMode.Font;
-            ClientSize = new Size(989, 464);
+            ClientSize = new Size(989, 483);
             Controls.Add(groupBox5);
             Controls.Add(button2);
             Controls.Add(button1);
@@ -517,5 +560,9 @@
         private TextBox textBox15;
         private TextBox textBox14;
         private DateTimePicker dateTimePicker1;
+        private TextBox textBoxDurationMinutes;
+        private ComboBox comboBoxTestMode;
+        private Label label18;
+        private Label label17;
     }
 }

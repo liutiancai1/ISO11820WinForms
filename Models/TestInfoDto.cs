@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel.DataAnnotations;
+using ISO11820WinForms.Utilities;
 using TestServer.Models;
 
 namespace ISO11820WinForms.Models
@@ -108,7 +109,7 @@ namespace ISO11820WinForms.Models
                 Deltatf = test.Deltatf,
                 Deltats = test.Deltats,
                 Deltatc = test.Deltatc,
-                Memo = test.Memo,
+                Memo = ReportPathMemoHelper.GetDisplayMemo(test.Memo),
                 // 从关联的 Product 获取产品信息
                 Productname = test.Product?.Productname ?? string.Empty,
                 Specific = test.Product?.Specific ?? string.Empty,

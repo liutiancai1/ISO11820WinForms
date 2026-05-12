@@ -152,7 +152,7 @@ namespace ISO11820WinForms.Services
                 
                 // 稳定5秒后标记为稳定（降低阈值以便更快进入Ready状态）
                 // 原来是12次（约10秒），现在改为6次（约5秒）
-                if (_stableCounter > 6)
+                if (_stableCounter > 3)
                 {
                     if (!_isStable)
                     {

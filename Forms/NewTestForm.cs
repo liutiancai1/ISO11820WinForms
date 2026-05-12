@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Drawing;
 using System.Windows.Forms;
 using TestServer.Models;
 using ISO11820WinForms.Models;
@@ -7,25 +8,94 @@ using ISO11820WinForms.Services;
 using ISO11820WinForms.Global;
 using Serilog;
 using ISO11820WinForms.Utilities;
+using ISO11820WinForms.UI;
 
 namespace ISO11820WinForms.Forms
 {
     public partial class NewTestForm : Form
     {
+        private const string StandardModeText = "标准模式";
+        private const string FixedDurationModeText = "固定时长";
+
         private readonly TestmasterService _testmasterService;
 
         public NewTestForm()
         {
             InitializeComponent();
-            
+
             _testmasterService = new TestmasterService();
-            
+
             // 设置按钮事件
             button1.Click += btnOK_Click;
             button2.Click += btnCancel_Click;
-            
+
+            InitializeTestDurationControls();
+
             // 初始化默认值
             InitializeDefaultValues();
+            ApplyDialogTheme();
+        }
+
+        private void InitializeTestDurationControls()
+        {
+            comboBoxTestMode.Items.Clear();
+            comboBoxTestMode.Items.Add(StandardModeText);
+            comboBoxTestMode.Items.Add(FixedDurationModeText);
+            comboBoxTestMode.SelectedIndex = 0;
+            comboBoxTestMode.SelectedIndexChanged += (_, _) => UpdateDurationInputState();
+            textBoxDurationMinutes.Text = "60";
+            UpdateDurationInputState();
+        }
+
+        private void UpdateDurationInputState()
+        {
+            textBoxDurationMinutes.Enabled = IsFixedDurationMode();
+        }
+
+        private bool IsFixedDurationMode()
+        {
+            return comboBoxTestMode.SelectedItem?.ToString() == FixedDurationModeText;
+        }
+
+        private bool TryGetTargetDurationSeconds(out int targetDurationSeconds, out string errorMessage)
+        {
+            targetDurationSeconds = 3600;
+            errorMessage = string.Empty;
+
+            if (!IsFixedDurationMode())
+            {
+                return true;
+            }
+
+            if (!int.TryParse(textBoxDurationMinutes.Text.Trim(), out int minutes) || minutes <= 0)
+            {
+                errorMessage = "固定时长模式下，试验时长必须是大于 0 的整数分钟。";
+                return false;
+            }
+
+            targetDurationSeconds = minutes * 60;
+            return true;
+        }
+
+        private void ApplyDialogTheme()
+        {
+            UiTheme.ApplyFormTheme(this, dialog: true);
+            UiTheme.ApplyToControlTree(this);
+
+            Text = "新建试验";
+            BackColor = UiTheme.AppBackground;
+            button1.Text = "创建试验";
+            button2.Text = "取消";
+            AcceptButton = button1;
+            CancelButton = button2;
+
+            UiTheme.StyleButton(button1, ButtonTone.Primary);
+            UiTheme.StyleButton(button2, ButtonTone.Neutral);
+
+            textBox12.Enabled = true;
+            textBox12.ReadOnly = true;
+            textBox12.BackColor = Color.FromArgb(240, 236, 229);
+            UpdateDurationInputState();
         }
 
         /*
@@ -73,6 +143,14 @@ namespace ISO11820WinForms.Forms
                     return;
                 }
 
+                if (!TryGetTargetDurationSeconds(out int targetDurationSeconds, out string durationErrorMessage))
+                {
+                    ExceptionHandler.HandleValidationError(durationErrorMessage);
+                    return;
+                }
+
+                bool useFixedDuration = IsFixedDurationMode();
+
                 // 2. 构建产品信息对象（Form层只负责数据收集）
                 var productmaster = new Productmaster
                 {
@@ -102,7 +180,9 @@ namespace ISO11820WinForms.Forms
                     Preweight = double.Parse(textBox9.Text),  // 试样初始质量
                     Phenocode = "0000",  // 默认现象编码
                     Memo = textBox10.Text.Trim(),  // 试验备注
-                    Flag = "00000000"  // 标志位：第1位-试验是否完成, 第2位-是否出结论
+                    Flag = "00000000",  // 标志位：第1位-试验是否完成, 第2位-是否出结论
+                    UseFixedDuration = useFixedDuration,
+                    TargetDurationSeconds = targetDurationSeconds
                 };
                 // 说明：其他计算字段（Totaltesttime、Postweight、Lostweight等）
                 // 不在此初始化，由SQL Server使用DEFAULT值处理

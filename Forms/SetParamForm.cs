@@ -1,5 +1,7 @@
 using System;
+using System.Drawing;
 using System.Windows.Forms;
+using ISO11820WinForms.UI;
 
 namespace ISO11820WinForms.Forms
 {
@@ -42,6 +44,24 @@ namespace ISO11820WinForms.Forms
         public SetParamForm()
         {
             InitializeComponent();
+            ApplyDialogTheme();
+        }
+
+        private void ApplyDialogTheme()
+        {
+            UiTheme.ApplyFormTheme(this, dialog: true);
+            UiTheme.ApplyToControlTree(this);
+
+            Text = "参数设置";
+            BackColor = UiTheme.AppBackground;
+            AcceptButton = btnOK;
+            CancelButton = btnCancel;
+
+            UiTheme.StyleButton(btnOK, ButtonTone.Primary);
+            UiTheme.StyleButton(btnCancel, ButtonTone.Neutral);
+
+            grpApparatus.BackColor = UiTheme.SurfaceRaised;
+            grpCommunication.BackColor = UiTheme.SurfaceRaised;
         }
 
         /// <summary>
